@@ -28,3 +28,9 @@ body {
   }
 }
 
+/* PDFエディタのテキスト入力フィールドの文字色を黒に固定 */
+input[type="text"] {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+

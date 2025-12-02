@@ -224,6 +224,16 @@ export default function PDFEditor() {
     );
   }, []);
 
+  const handleImageSizeChange = useCallback((id: string, width: number, height: number) => {
+    setElements((prev) =>
+      prev.map((el) =>
+        el.id === id && el.type === "image"
+          ? { ...el, width, height }
+          : el
+      )
+    );
+  }, []);
+
   const handleSave = useCallback(async () => {
     if (!pdfFile) return;
 
@@ -365,13 +375,16 @@ export default function PDFEditor() {
                         fontSize: `${element.fontSize * scale}px`,
                         border: "none",
                         outline: "none",
-                        background: "rgba(255, 255, 255, 0.9)",
+                        background: "transparent",
                         minWidth: "100px",
                         padding: "2px 4px",
                         borderRadius: "2px",
                         cursor: "text",
                         pointerEvents: "auto",
+                        color: "#000000",
+                        WebkitTextFillColor: "#000000",
                       }}
+                      className="text-black"
                       autoFocus={selectedElement === element.id}
                     />
                   ) : (
@@ -437,30 +450,122 @@ export default function PDFEditor() {
               )}
             </div>
 
-            {/* フォントサイズ */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                フォントサイズ: {fontSize}px
-              </label>
-              <input
-                type="range"
-                min="8"
-                max="72"
-                value={fontSize}
-                onChange={(e) => setFontSize(Number(e.target.value))}
-                className="w-full"
-              />
-              {selectedElement && (
-                <button
-                  onClick={() =>
-                    handleFontSizeChange(selectedElement, fontSize)
+            {/* 選択中の要素の編集 */}
+            {selectedElement && (
+              <>
+                {(() => {
+                  const selected = elements.find((el) => el.id === selectedElement);
+                  if (!selected) return null;
+
+                  if (selected.type === "text") {
+                    return (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          フォントサイズ: {selected.fontSize}px
+                        </label>
+                        <input
+                          type="range"
+                          min="8"
+                          max="72"
+                          value={selected.fontSize}
+                          onChange={(e) =>
+                            handleFontSizeChange(selectedElement, Number(e.target.value))
+                          }
+                          className="w-full"
+                        />
+                      </div>
+                    );
+                  } else if (selected.type === "image") {
+                    return (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            幅: {Math.round(selected.width)}px
+                          </label>
+                          <input
+                            type="range"
+                            min="50"
+                            max="500"
+                            value={selected.width}
+                            onChange={(e) =>
+                              handleImageSizeChange(
+                                selectedElement,
+                                Number(e.target.value),
+                                selected.height
+                              )
+                            }
+                            className="w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            高さ: {Math.round(selected.height)}px
+                          </label>
+                          <input
+                            type="range"
+                            min="50"
+                            max="500"
+                            value={selected.height}
+                            onChange={(e) =>
+                              handleImageSizeChange(
+                                selectedElement,
+                                selected.width,
+                                Number(e.target.value)
+                              )
+                            }
+                            className="w-full"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() =>
+                              handleImageSizeChange(
+                                selectedElement,
+                                selected.width * 1.1,
+                                selected.height * 1.1
+                              )
+                            }
+                            className="flex-1 px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
+                          >
+                            拡大
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleImageSizeChange(
+                                selectedElement,
+                                selected.width * 0.9,
+                                selected.height * 0.9
+                              )
+                            }
+                            className="flex-1 px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
+                          >
+                            縮小
+                          </button>
+                        </div>
+                      </div>
+                    );
                   }
-                  className="mt-2 w-full px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
-                >
-                  選択中のテキストに適用
-                </button>
-              )}
-            </div>
+                  return null;
+                })()}
+              </>
+            )}
+
+            {/* 新規テキスト追加時のフォントサイズ */}
+            {!selectedElement && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  新規テキストのフォントサイズ: {fontSize}px
+                </label>
+                <input
+                  type="range"
+                  min="8"
+                  max="72"
+                  value={fontSize}
+                  onChange={(e) => setFontSize(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+            )}
 
             {/* 印鑑画像アップロード */}
             <div>
