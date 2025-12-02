@@ -5,10 +5,11 @@ import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
 import { useState, useCallback, useEffect } from "react";
 
-// PDF.js workerの設定
-if (typeof window !== "undefined") {
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-}
+// PDF.js workerの設定（useEffect内で設定）
+useEffect(() => {
+  // ローカルのworkerファイルを使用
+  pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
+}, []);
 
 interface PDFViewerProps {
   file: File | null;
