@@ -3,11 +3,11 @@
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 // PDF.js workerの設定
 if (typeof window !== "undefined") {
-  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 }
 
 interface PDFViewerProps {
@@ -26,18 +26,42 @@ export default function PDFViewer({
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+
+  // FileオブジェクトをURLに変換
+  useEffect(() => {
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setFileUrl(url);
+      setError(null);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      setFileUrl(null);
+    }
+  }, [file]);
 
   const onDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
       setNumPages(numPages);
       setPageNumber(1);
       setLoading(false);
+      setError(null);
     },
     []
   );
 
   const onDocumentLoadStart = useCallback(() => {
     setLoading(true);
+    setError(null);
+  }, []);
+
+  const onDocumentLoadError = useCallback((error: Error) => {
+    console.error("PDF読み込みエラー:", error);
+    setError(`PDFの読み込みに失敗しました: ${error.message}`);
+    setLoading(false);
   }, []);
 
   if (!file) {
@@ -96,23 +120,47 @@ export default function PDFViewer({
             onClick={onPageClick}
             style={{ position: "relative" }}
           >
-            <Document
-              file={file}
-              onLoadSuccess={onDocumentLoadSuccess}
-              onLoadStart={onDocumentLoadStart}
-              loading={
-                <div className="flex items-center justify-center h-96">
-                  <p className="text-gray-600">読み込み中...</p>
-                </div>
-              }
-            >
-              <Page
-                pageNumber={pageNumber}
-                scale={scale}
-                renderTextLayer={true}
-                renderAnnotationLayer={true}
-              />
-            </Document>
+            {error ? (
+              <div className="flex flex-col items-center justify-center h-96 p-4">
+                <p className="text-red-600 font-medium mb-2">エラー</p>
+                <p className="text-sm text-gray-600 text-center">{error}</p>
+                <button
+                  onClick={() => {
+                    setError(null);
+                    if (file) {
+                      const url = URL.createObjectURL(file);
+                      setFileUrl(url);
+                    }
+                  }}
+                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  再試行
+                </button>
+              </div>
+            ) : fileUrl ? (
+              <Document
+                file={fileUrl}
+                onLoadSuccess={onDocumentLoadSuccess}
+                onLoadStart={onDocumentLoadStart}
+                onLoadError={onDocumentLoadError}
+                loading={
+                  <div className="flex items-center justify-center h-96">
+                    <p className="text-gray-600">読み込み中...</p>
+                  </div>
+                }
+              >
+                <Page
+                  pageNumber={pageNumber}
+                  scale={scale}
+                  renderTextLayer={true}
+                  renderAnnotationLayer={true}
+                />
+              </Document>
+            ) : (
+              <div className="flex items-center justify-center h-96">
+                <p className="text-gray-600">ファイルを準備中...</p>
+              </div>
+            )}
             {children}
           </div>
         </div>
