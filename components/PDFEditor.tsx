@@ -40,6 +40,7 @@ export default function PDFEditor() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pageContainerRef = useRef<HTMLDivElement>(null);
 
   const handleFileUpload = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,28 +135,38 @@ export default function PDFEditor() {
 
   const handleElementMouseDown = useCallback(
     (event: React.MouseEvent, elementId: string) => {
+      // input要素の場合はドラッグしない
+      if ((event.target as HTMLElement).tagName === "INPUT") {
+        return;
+      }
       event.stopPropagation();
+      event.preventDefault();
       const element = elements.find((el) => el.id === elementId);
-      if (!element) return;
+      if (!element || !containerRef.current) return;
 
-      const rect = event.currentTarget.getBoundingClientRect();
-      const offsetX = event.clientX - rect.left - element.x * scale;
-      const offsetY = event.clientY - rect.top - element.y * scale;
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const elementRect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      
+      // マウス位置と要素位置のオフセットを計算
+      const offsetX = event.clientX - elementRect.left;
+      const offsetY = event.clientY - elementRect.top;
 
       setDragging(elementId);
       setDragOffset({ x: offsetX, y: offsetY });
       setSelectedElement(elementId);
     },
-    [elements, scale]
+    [elements]
   );
 
   const handleMouseMove = useCallback(
     (event: MouseEvent) => {
-      if (!dragging || !containerRef.current) return;
+      if (!dragging || !pageContainerRef.current) return;
 
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const x = (event.clientX - containerRect.left - dragOffset.x) / scale;
-      const y = (event.clientY - containerRect.top - dragOffset.y) / scale;
+      const pageRect = pageContainerRef.current.getBoundingClientRect();
+      
+      // PDFページ内の相対位置を計算
+      const x = (event.clientX - pageRect.left - dragOffset.x) / scale;
+      const y = (event.clientY - pageRect.top - dragOffset.y) / scale;
 
       setElements((prev) =>
         prev.map((el) =>
@@ -282,6 +293,7 @@ export default function PDFEditor() {
               file={pdfFile}
               scale={scale}
               onPageClick={handlePageClick}
+              pageContainerRef={pageContainerRef}
             >
               {currentPageElements.map((element) => (
                 <div
@@ -305,14 +317,28 @@ export default function PDFEditor() {
                       type="text"
                       value={element.text}
                       onChange={(e) => handleTextChange(element.id, e.target.value)}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        setSelectedElement(element.id);
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedElement(element.id);
+                      }}
+                      onFocus={(e) => {
+                        e.stopPropagation();
+                        setSelectedElement(element.id);
+                      }}
                       style={{
                         fontSize: `${element.fontSize * scale}px`,
                         border: "none",
                         outline: "none",
-                        background: "transparent",
+                        background: "rgba(255, 255, 255, 0.8)",
                         minWidth: "100px",
+                        padding: "2px 4px",
+                        borderRadius: "2px",
                       }}
-                      onClick={(e) => e.stopPropagation()}
+                      autoFocus={selectedElement === element.id}
                     />
                   ) : (
                     <img

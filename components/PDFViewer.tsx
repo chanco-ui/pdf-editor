@@ -10,6 +10,7 @@ interface PDFViewerProps {
   scale?: number;
   onPageClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
   children?: React.ReactNode;
+  pageContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function PDFViewer({
@@ -17,6 +18,7 @@ export default function PDFViewer({
   scale = 1.0,
   onPageClick,
   children,
+  pageContainerRef,
 }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
@@ -117,6 +119,7 @@ export default function PDFViewer({
       <div className="flex-1 overflow-auto bg-gray-100 p-4">
         <div className="flex justify-center">
           <div
+            ref={pageContainerRef}
             className="relative"
             onClick={onPageClick}
             style={{ position: "relative" }}
