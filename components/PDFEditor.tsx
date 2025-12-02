@@ -11,6 +11,7 @@ interface TextElement {
   x: number;
   y: number;
   fontSize: number;
+  width: number;
   page: number;
 }
 
@@ -86,6 +87,7 @@ export default function PDFEditor() {
         x: x / scale,
         y: y / scale,
         fontSize,
+        width: 150,
         page: currentPage,
       };
 
@@ -220,6 +222,14 @@ export default function PDFEditor() {
     setElements((prev) =>
       prev.map((el) =>
         el.id === id && el.type === "text" ? { ...el, fontSize: size } : el
+      )
+    );
+  }, []);
+
+  const handleTextWidthChange = useCallback((id: string, width: number) => {
+    setElements((prev) =>
+      prev.map((el) =>
+        el.id === id && el.type === "text" ? { ...el, width } : el
       )
     );
   }, []);
@@ -368,15 +378,26 @@ export default function PDFEditor() {
                         e.stopPropagation();
                         setSelectedElement(element.id);
                       }}
+                      onBlur={(e) => {
+                        e.stopPropagation();
+                        // テキスト確定時に選択を解除（青枠を消す）
+                        setTimeout(() => {
+                          setSelectedElement(null);
+                        }, 200);
+                      }}
                       onKeyDown={(e) => {
                         e.stopPropagation();
+                        // Enterキーで確定
+                        if (e.key === "Enter") {
+                          (e.target as HTMLInputElement).blur();
+                        }
                       }}
                       style={{
                         fontSize: `${element.fontSize * scale}px`,
                         border: "none",
                         outline: "none",
                         background: "transparent",
-                        minWidth: "100px",
+                        width: `${element.width * scale}px`,
                         padding: "2px 4px",
                         borderRadius: "2px",
                         cursor: "text",
@@ -405,12 +426,12 @@ export default function PDFEditor() {
 
         {/* 右側: ツールパネル */}
         <div className="w-80 bg-white border-l border-gray-300 p-4 flex flex-col">
-          <h2 className="text-lg font-bold mb-4">ツール</h2>
+          <h2 className="text-lg font-bold mb-4 text-black">ツール</h2>
 
           <div className="space-y-4 flex-1">
             {/* ファイルアップロード */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 PDFファイル
               </label>
               <input
@@ -430,7 +451,7 @@ export default function PDFEditor() {
 
             {/* テキスト入力モード */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 テキスト入力
               </label>
               <button
@@ -459,27 +480,44 @@ export default function PDFEditor() {
 
                   if (selected.type === "text") {
                     return (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          フォントサイズ: {selected.fontSize}px
-                        </label>
-                        <input
-                          type="range"
-                          min="8"
-                          max="72"
-                          value={selected.fontSize}
-                          onChange={(e) =>
-                            handleFontSizeChange(selectedElement, Number(e.target.value))
-                          }
-                          className="w-full"
-                        />
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-black mb-2">
+                            フォントサイズ: {selected.fontSize}px
+                          </label>
+                          <input
+                            type="range"
+                            min="8"
+                            max="72"
+                            value={selected.fontSize}
+                            onChange={(e) =>
+                              handleFontSizeChange(selectedElement, Number(e.target.value))
+                            }
+                            className="w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-black mb-2">
+                            幅: {Math.round(selected.width)}px
+                          </label>
+                          <input
+                            type="range"
+                            min="50"
+                            max="500"
+                            value={selected.width}
+                            onChange={(e) =>
+                              handleTextWidthChange(selectedElement, Number(e.target.value))
+                            }
+                            className="w-full"
+                          />
+                        </div>
                       </div>
                     );
                   } else if (selected.type === "image") {
                     return (
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-black mb-2">
                             幅: {Math.round(selected.width)}px
                           </label>
                           <input
@@ -498,7 +536,7 @@ export default function PDFEditor() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-black mb-2">
                             高さ: {Math.round(selected.height)}px
                           </label>
                           <input
@@ -553,7 +591,7 @@ export default function PDFEditor() {
             {/* 新規テキスト追加時のフォントサイズ */}
             {!selectedElement && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-black mb-2">
                   新規テキストのフォントサイズ: {fontSize}px
                 </label>
                 <input
@@ -569,7 +607,7 @@ export default function PDFEditor() {
 
             {/* 印鑑画像アップロード */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 電子印鑑
               </label>
               <input
@@ -601,7 +639,7 @@ export default function PDFEditor() {
 
             {/* ズーム */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 ズーム: {Math.round(scale * 100)}%
               </label>
               <input
@@ -617,13 +655,17 @@ export default function PDFEditor() {
           </div>
 
           {/* 保存ボタン */}
-          <div className="mt-auto pt-4 border-t border-gray-300">
+          <div className="mt-auto pt-4 border-t-2 border-gray-400">
+            <div className="mb-2">
+              <p className="text-sm font-semibold text-black mb-1">PDFダウンロード</p>
+              <p className="text-xs text-gray-600">編集したPDFをダウンロードします</p>
+            </div>
             <button
               onClick={handleSave}
               disabled={!pdfFile}
-              className="w-full px-4 py-3 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              className="w-full px-4 py-3 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg shadow-md"
             >
-              PDFを保存
+              📥 PDFを保存
             </button>
           </div>
         </div>
