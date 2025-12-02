@@ -5,12 +5,6 @@ import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
 import { useState, useCallback, useEffect } from "react";
 
-// PDF.js workerの設定（useEffect内で設定）
-useEffect(() => {
-  // ローカルのworkerファイルを使用
-  pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
-}, []);
-
 interface PDFViewerProps {
   file: File | null;
   scale?: number;
@@ -29,6 +23,12 @@ export default function PDFViewer({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+
+  // PDF.js workerの設定
+  useEffect(() => {
+    // ローカルのworkerファイルを使用
+    pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
+  }, []);
 
   // FileオブジェクトをURLに変換
   useEffect(() => {
