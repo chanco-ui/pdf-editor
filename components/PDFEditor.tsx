@@ -74,26 +74,35 @@ export default function PDFEditor() {
 
   const handlePageClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      if (!isTextMode || !pdfFile) return;
+      // 要素上をクリックした場合は何もしない（要素のクリックイベントで処理される）
+      if ((event.target as HTMLElement).closest('[data-element-container]')) {
+        return;
+      }
 
-      const rect = event.currentTarget.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
+      if (isTextMode && pdfFile) {
+        // テキストモードの場合は新しいテキストを追加
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
 
-      const newElement: TextElement = {
-        id: `text-${Date.now()}`,
-        type: "text",
-        text: "テキストを入力",
-        x: x / scale,
-        y: y / scale,
-        fontSize,
-        width: 150,
-        page: currentPage,
-      };
+        const newElement: TextElement = {
+          id: `text-${Date.now()}`,
+          type: "text",
+          text: "テキストを入力",
+          x: x / scale,
+          y: y / scale,
+          fontSize,
+          width: 150,
+          page: currentPage,
+        };
 
-      setElements((prev) => [...prev, newElement]);
-      setSelectedElement(newElement.id);
-      setIsTextMode(false);
+        setElements((prev) => [...prev, newElement]);
+        setSelectedElement(newElement.id);
+        setIsTextMode(false);
+      } else {
+        // テキストモードでない場合は選択を解除
+        setSelectedElement(null);
+      }
     },
     [isTextMode, pdfFile, scale, fontSize, currentPage]
   );
@@ -326,6 +335,7 @@ export default function PDFEditor() {
               {currentPageElements.map((element) => (
                 <div
                   key={element.id}
+                  data-element-container
                   onClick={(e) => {
                     // input要素の場合はクリックをスキップ
                     if ((e.target as HTMLElement).tagName === "INPUT") {
@@ -344,7 +354,7 @@ export default function PDFEditor() {
                     position: "absolute",
                     left: `${element.x * scale}px`,
                     top: `${element.y * scale}px`,
-                    cursor: element.type === "text" ? "default" : "move",
+                    cursor: selectedElement === element.id ? "move" : (element.type === "text" ? "default" : "move"),
                     border:
                       selectedElement === element.id
                         ? "2px solid #3b82f6"
@@ -378,17 +388,11 @@ export default function PDFEditor() {
                         e.stopPropagation();
                         setSelectedElement(element.id);
                       }}
-                      onBlur={(e) => {
-                        e.stopPropagation();
-                        // テキスト確定時に選択を解除（青枠を消す）
-                        setTimeout(() => {
-                          setSelectedElement(null);
-                        }, 200);
-                      }}
                       onKeyDown={(e) => {
                         e.stopPropagation();
-                        // Enterキーで確定
-                        if (e.key === "Enter") {
+                        // Escapeキーで選択解除
+                        if (e.key === "Escape") {
+                          setSelectedElement(null);
                           (e.target as HTMLInputElement).blur();
                         }
                       }}
