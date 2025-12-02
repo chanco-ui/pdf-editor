@@ -135,16 +135,24 @@ export default function PDFEditor() {
 
   const handleElementMouseDown = useCallback(
     (event: React.MouseEvent, elementId: string) => {
-      // input要素の場合はドラッグしない
-      if ((event.target as HTMLElement).tagName === "INPUT") {
+      // input要素やその子要素の場合はドラッグしない
+      const target = event.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.closest("input")) {
         return;
       }
+      
+      // 左クリックのみドラッグを許可
+      if (event.button !== 0) {
+        return;
+      }
+      
       event.stopPropagation();
       event.preventDefault();
+      
       const element = elements.find((el) => el.id === elementId);
-      if (!element || !containerRef.current) return;
+      if (!element || !pageContainerRef.current) return;
 
-      const containerRect = containerRef.current.getBoundingClientRect();
+      const pageRect = pageContainerRef.current.getBoundingClientRect();
       const elementRect = (event.currentTarget as HTMLElement).getBoundingClientRect();
       
       // マウス位置と要素位置のオフセットを計算
@@ -298,28 +306,49 @@ export default function PDFEditor() {
               {currentPageElements.map((element) => (
                 <div
                   key={element.id}
-                  onClick={(e) => handleElementClick(e, element.id)}
-                  onMouseDown={(e) => handleElementMouseDown(e, element.id)}
+                  onClick={(e) => {
+                    // input要素の場合はクリックをスキップ
+                    if ((e.target as HTMLElement).tagName === "INPUT") {
+                      return;
+                    }
+                    handleElementClick(e, element.id);
+                  }}
+                  onMouseDown={(e) => {
+                    // input要素の場合はドラッグをスキップ
+                    if ((e.target as HTMLElement).tagName === "INPUT") {
+                      return;
+                    }
+                    handleElementMouseDown(e, element.id);
+                  }}
                   style={{
                     position: "absolute",
                     left: `${element.x * scale}px`,
                     top: `${element.y * scale}px`,
-                    cursor: "move",
+                    cursor: element.type === "text" ? "default" : "move",
                     border:
                       selectedElement === element.id
                         ? "2px solid #3b82f6"
                         : "2px solid transparent",
                     padding: "2px",
+                    zIndex: selectedElement === element.id ? 10 : 1,
                   }}
                 >
                   {element.type === "text" ? (
                     <input
                       type="text"
                       value={element.text}
-                      onChange={(e) => handleTextChange(element.id, e.target.value)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleTextChange(element.id, e.target.value);
+                      }}
                       onMouseDown={(e) => {
                         e.stopPropagation();
+                        e.preventDefault();
                         setSelectedElement(element.id);
+                        // フォーカスを確実に設定
+                        setTimeout(() => {
+                          (e.target as HTMLInputElement).focus();
+                        }, 0);
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -329,14 +358,19 @@ export default function PDFEditor() {
                         e.stopPropagation();
                         setSelectedElement(element.id);
                       }}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                      }}
                       style={{
                         fontSize: `${element.fontSize * scale}px`,
                         border: "none",
                         outline: "none",
-                        background: "rgba(255, 255, 255, 0.8)",
+                        background: "rgba(255, 255, 255, 0.9)",
                         minWidth: "100px",
                         padding: "2px 4px",
                         borderRadius: "2px",
+                        cursor: "text",
+                        pointerEvents: "auto",
                       }}
                       autoFocus={selectedElement === element.id}
                     />
