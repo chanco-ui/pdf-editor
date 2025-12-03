@@ -29,7 +29,18 @@ body {
 }
 
 /* PDFエディタのテキスト入力フィールドの文字色を黒に固定 */
-input[type="text"] {
+input[type="text"],
+input[type="text"]:focus,
+input[type="text"]:active,
+input[data-pdf-text-input],
+input[data-pdf-text-input]:focus,
+input[data-pdf-text-input]:active {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+/* すべてのinput要素の文字色を黒に */
+input {
   color: #000000 !important;
   -webkit-text-fill-color: #000000 !important;
 }

@@ -218,6 +218,19 @@ export default function PDFEditor() {
     }
   }, [selectedElement]);
 
+  // Deleteキーで削除
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (selectedElement && document.activeElement?.tagName !== "INPUT") {
+          handleDelete();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedElement, handleDelete]);
+
   const handleTextChange = useCallback(
     (id: string, text: string) => {
       setElements((prev) =>
@@ -317,7 +330,7 @@ export default function PDFEditor() {
   const currentPageElements = elements.filter((el) => el.page === currentPage);
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col pdf-editor">
       <div className="flex-1 flex overflow-hidden">
         {/* 左側: PDFプレビュー */}
         <div className="flex-1 flex flex-col border-r border-gray-300">
@@ -430,13 +443,13 @@ export default function PDFEditor() {
         </div>
 
         {/* 右側: ツールパネル */}
-        <div className="w-80 bg-white border-l border-gray-300 flex flex-col h-full">
-          <div className="p-4 flex-shrink-0">
+        <div className="w-80 bg-white border-l border-gray-300 flex flex-col" style={{ height: "100%" }}>
+          <div className="p-4 flex-shrink-0 border-b border-gray-200">
             <h2 className="text-lg font-bold mb-4 text-black">ツール</h2>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
-            <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+            <div className="p-4 space-y-4">
             {/* ファイルアップロード */}
             <div>
               <label className="block text-sm font-medium text-black mb-2">
@@ -635,12 +648,12 @@ export default function PDFEditor() {
 
             {/* 削除ボタン */}
             {selectedElement && (
-              <div>
+              <div className="border-t border-gray-300 pt-4 mt-4">
                 <button
                   onClick={handleDelete}
-                  className="w-full px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                  className="w-full px-4 py-3 bg-red-500 text-white rounded hover:bg-red-600 font-medium shadow-md"
                 >
-                  選択中の要素を削除
+                  🗑️ 選択中の要素を削除 (Deleteキー)
                 </button>
               </div>
             )}
@@ -664,7 +677,7 @@ export default function PDFEditor() {
           </div>
 
           {/* 保存ボタン */}
-          <div className="p-4 pt-4 border-t-2 border-gray-400 flex-shrink-0 bg-white">
+          <div className="p-4 border-t-2 border-gray-400 flex-shrink-0 bg-white">
             <div className="mb-2">
               <p className="text-sm font-semibold text-black mb-1">PDFダウンロード</p>
               <p className="text-xs text-black">編集したPDFをダウンロードします</p>
