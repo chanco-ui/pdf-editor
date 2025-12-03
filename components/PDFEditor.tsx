@@ -330,13 +330,14 @@ export default function PDFEditor() {
   const currentPageElements = elements.filter((el) => el.page === currentPage);
 
   return (
-    <div className="h-screen flex flex-col pdf-editor">
-      <div className="flex-1 flex overflow-hidden">
+    <div className="flex flex-col pdf-editor" style={{ height: "100%", overflow: "hidden" }}>
+      <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0, height: "100%" }}>
         {/* 左側: PDFプレビュー */}
-        <div className="flex-1 flex flex-col border-r border-gray-300">
+        <div className="flex-1 flex flex-col border-r border-gray-300" style={{ minWidth: 0, overflow: "hidden" }}>
           <div
             ref={containerRef}
             className="flex-1 overflow-hidden"
+            style={{ minHeight: 0, height: "100%" }}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
           >
@@ -422,7 +423,8 @@ export default function PDFEditor() {
                         pointerEvents: "auto",
                         color: "#000000",
                         WebkitTextFillColor: "#000000",
-                      }}
+                        caretColor: "#000000",
+                      } as React.CSSProperties}
                       className="text-black"
                       autoFocus={selectedElement === element.id}
                     />
@@ -443,13 +445,13 @@ export default function PDFEditor() {
         </div>
 
         {/* 右側: ツールパネル */}
-        <div className="w-80 bg-white border-l border-gray-300 flex flex-col" style={{ height: "100%" }}>
-          <div className="p-4 flex-shrink-0 border-b border-gray-200">
+        <div className="w-80 bg-white border-l border-gray-300 flex flex-col" style={{ height: "100%", minWidth: "320px", maxHeight: "100%" }}>
+          <div className="p-4 flex-shrink-0 border-b border-gray-200" style={{ flexShrink: 0 }}>
             <h2 className="text-lg font-bold mb-4 text-black">ツール</h2>
           </div>
 
-          <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
-            <div className="p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto" style={{ minHeight: 0, flex: "1 1 auto", overflowY: "auto" }}>
+            <div className="p-4 space-y-4" style={{ paddingBottom: "20px" }}>
             {/* ファイルアップロード */}
             <div>
               <label className="block text-sm font-medium text-black mb-2">
@@ -677,7 +679,7 @@ export default function PDFEditor() {
           </div>
 
           {/* 保存ボタン */}
-          <div className="p-4 border-t-2 border-gray-400 flex-shrink-0 bg-white">
+          <div className="p-4 border-t-2 border-gray-400 bg-white shadow-lg" style={{ flexShrink: 0, flex: "0 0 auto" }}>
             <div className="mb-2">
               <p className="text-sm font-semibold text-black mb-1">PDFダウンロード</p>
               <p className="text-xs text-black">編集したPDFをダウンロードします</p>

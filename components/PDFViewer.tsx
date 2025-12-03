@@ -94,8 +94,8 @@ export default function PDFViewer({
   }
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4 px-4">
+    <div className="w-full h-full flex flex-col" style={{ height: "100%", overflow: "hidden" }}>
+      <div className="flex items-center justify-between mb-4 px-4 flex-shrink-0" style={{ flexShrink: 0 }}>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPageNumber((prev) => Math.max(1, prev - 1))}
@@ -116,8 +116,8 @@ export default function PDFViewer({
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto bg-gray-100 p-4">
-        <div className="flex justify-center">
+      <div className="flex-1 overflow-auto bg-gray-100 p-4" style={{ minHeight: 0, flex: "1 1 auto", overflowY: "auto", overflowX: "hidden" }}>
+        <div className="flex justify-center" style={{ minHeight: "100%" }}>
           <div
             ref={pageContainerRef}
             className="relative"
