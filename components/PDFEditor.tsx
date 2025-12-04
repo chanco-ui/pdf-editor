@@ -715,7 +715,7 @@ export default function PDFEditor() {
                           fontSize: `${element.fontSize * scale}px`,
                           border: "none",
                           outline: "none",
-                          background: "white",
+                          background: "transparent",
                           width: `${element.width * scale}px`,
                           padding: "2px 4px",
                           borderRadius: "2px",
