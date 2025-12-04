@@ -33,9 +33,9 @@ export default function HomePage() {
     <div className="h-screen flex flex-col">
       {/* ヘッダー */}
       <header className="bg-white border-b border-gray-300 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-black">PDF編集ツール</h1>
+        <h1 className="text-xl font-bold text-gray-900">PDF編集ツール</h1>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-black">（認証機能は後で実装予定）</span>
+          <span className="text-sm text-gray-700">（認証機能は後で実装予定）</span>
           {/* <span className="text-sm text-gray-600">{session.user?.email}</span>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}

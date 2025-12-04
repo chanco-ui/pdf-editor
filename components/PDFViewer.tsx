@@ -84,10 +84,10 @@ export default function PDFViewer({
               strokeLinejoin="round"
             />
           </svg>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-gray-700">
             PDFファイルをドラッグ&ドロップ
           </p>
-          <p className="text-xs text-gray-500">またはクリックして選択</p>
+          <p className="text-xs text-gray-600">またはクリックして選択</p>
         </div>
       </div>
     );
@@ -100,17 +100,17 @@ export default function PDFViewer({
           <button
             onClick={() => setPageNumber((prev) => Math.max(1, prev - 1))}
             disabled={pageNumber <= 1}
-            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
+            className="px-3 py-1 bg-gray-200 text-gray-900 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
           >
             前へ
           </button>
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-gray-900">
             {pageNumber} / {numPages}
           </span>
           <button
             onClick={() => setPageNumber((prev) => Math.min(numPages, prev + 1))}
             disabled={pageNumber >= numPages}
-            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
+            className="px-3 py-1 bg-gray-200 text-gray-900 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
           >
             次へ
           </button>
@@ -127,7 +127,7 @@ export default function PDFViewer({
             {error ? (
               <div className="flex flex-col items-center justify-center h-96 p-4">
                 <p className="text-red-600 font-medium mb-2">エラー</p>
-                <p className="text-sm text-gray-600 text-center">{error}</p>
+                <p className="text-sm text-gray-900 text-center">{error}</p>
                 <button
                   onClick={() => {
                     setError(null);
@@ -149,7 +149,7 @@ export default function PDFViewer({
                 onLoadError={onDocumentLoadError}
                 loading={
                   <div className="flex items-center justify-center h-96">
-                    <p className="text-gray-600">読み込み中...</p>
+                    <p className="text-gray-900">読み込み中...</p>
                   </div>
                 }
               >
@@ -162,7 +162,7 @@ export default function PDFViewer({
               </Document>
             ) : (
               <div className="flex items-center justify-center h-96">
-                <p className="text-gray-600">ファイルを準備中...</p>
+                <p className="text-gray-900">ファイルを準備中...</p>
               </div>
             )}
             {children}
