@@ -77,28 +77,30 @@ export default function PDFEditor() {
 
   const handlePageClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
+      // data-element-container がクリックされた場合は何もしない
       const target = event.target as HTMLElement;
-      // 要素上をクリックした場合は何もしない（要素のクリックイベントで処理される）
       const elementContainer = target.closest('[data-element-container]');
       if (elementContainer) {
-        console.log("handlePageClick: element container clicked, skipping");
+        console.log("handlePageClick: element clicked, skipping");
         return;
       }
+      
+      console.log("handlePageClick called, isTextMode:", isTextMode);
 
-      console.log("handlePageClick: page clicked, target:", target.tagName);
-
-      if (isTextMode && pdfFile) {
+      if (isTextMode && pdfFile && pageContainerRef.current) {
         // テキストモードの場合は新しいテキストを追加
-        const rect = event.currentTarget.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        const rect = pageContainerRef.current.getBoundingClientRect();
+        const x = (event.clientX - rect.left) / scale;
+        const y = (event.clientY - rect.top) / scale;
+
+        console.log("Adding text at:", x, y);
 
         const newElement: TextElement = {
           id: `text-${Date.now()}`,
           type: "text",
           text: "テキストを入力",
-          x: x / scale,
-          y: y / scale,
+          x: x,
+          y: y,
           fontSize,
           width: 150,
           page: currentPage,
@@ -108,6 +110,8 @@ export default function PDFEditor() {
         setSelectedElement(newElement.id);
         setLastSelectedElement(newElement.id);
         setIsTextMode(false);
+        
+        console.log("Text element added:", newElement.id);
       } else {
         // テキストモードでない場合は選択を解除
         console.log("handlePageClick: deselecting");
@@ -158,49 +162,43 @@ export default function PDFEditor() {
     (event: React.MouseEvent, elementId: string) => {
       event.stopPropagation();
       event.preventDefault();
-      // 選択処理を実行
-      if (selectedElement === elementId) {
-        setSelectedElement(null);
-      } else {
-        setSelectedElement(elementId);
-        setLastSelectedElement(elementId);
-      }
+      console.log("Element clicked:", elementId);
+      setSelectedElement(elementId);
+      setLastSelectedElement(elementId);
     },
-    [selectedElement]
+    []
   );
 
   const handleElementMouseDown = useCallback(
     (event: React.MouseEvent, elementId: string) => {
-      // input要素やその子要素の場合はドラッグしない
+      // input要素の場合はドラッグしない
       const target = event.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.closest("input")) {
+      if (target.tagName === "INPUT") {
         return;
       }
       
-      // 左クリックのみドラッグを許可
+      // 左クリックのみ
       if (event.button !== 0) {
         return;
       }
       
       event.stopPropagation();
-      // preventDefaultは呼ばない（クリックイベントを発火させるため）
       
       const element = elements.find((el) => el.id === elementId);
       if (!element || !pageContainerRef.current) return;
 
-      const pageRect = pageContainerRef.current.getBoundingClientRect();
       const elementRect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-      
-      // マウス位置と要素位置のオフセットを計算
       const offsetX = event.clientX - elementRect.left;
       const offsetY = event.clientY - elementRect.top;
 
-      // クリックとして扱う（移動距離が小さい場合）
-      setIsClick(true);
       setDragStartPos({ x: event.clientX, y: event.clientY });
       setDragging(elementId);
       setDragOffset({ x: offsetX, y: offsetY });
-      // 選択状態はonClickで設定する（ドラッグとクリックを区別するため）
+      setIsClick(true);
+      
+      // 選択状態を即座に設定
+      setSelectedElement(elementId);
+      setLastSelectedElement(elementId);
     },
     [elements]
   );
@@ -235,46 +233,15 @@ export default function PDFEditor() {
     [dragging, dragOffset, dragStartPos, scale]
   );
 
-  const handleMouseUp = useCallback(
-    (event: MouseEvent) => {
-      const wasDragging = dragging;
-      if (dragging) {
-        // ドラッグ終了後も選択状態を確実に維持
-        const elementId = dragging;
-        setSelectedElement(elementId);
-        setLastSelectedElement(elementId);
-        // 少し遅延させて確実に選択状態を設定
-        setTimeout(() => {
-          setSelectedElement(elementId);
-          setLastSelectedElement(elementId);
-        }, 0);
-      }
-      setDragging(null);
-      setIsClick(true);
-      
-      // ドラッグが発生していなかった場合、クリックとして扱う
-      // ただし、onClickイベントが発火するまで少し待つ
-      if (!wasDragging) {
-        // クリックイベントが発火するまで少し待つ
-        setTimeout(() => {
-          // クリックイベントが発火していない場合、手動で選択状態を設定
-          const target = event.target as HTMLElement;
-          const elementContainer = target.closest('[data-element-container]');
-          if (elementContainer) {
-            const clickedElementId = elementContainer.getAttribute('data-element-id');
-            if (clickedElementId) {
-              // 選択されていない場合のみ選択状態を設定
-              if (!selectedElement) {
-                setSelectedElement(clickedElementId);
-                setLastSelectedElement(clickedElementId);
-              }
-            }
-          }
-        }, 100);
-      }
-    },
-    [dragging, selectedElement]
-  );
+  const handleMouseUp = useCallback(() => {
+    if (dragging) {
+      // ドラッグ終了時も選択状態を維持
+      setSelectedElement(dragging);
+      setLastSelectedElement(dragging);
+    }
+    setDragging(null);
+    setIsClick(true);
+  }, [dragging]);
 
   useEffect(() => {
     if (dragging) {
@@ -434,29 +401,29 @@ export default function PDFEditor() {
         />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors min-w-[140px]"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors min-w-[140px] font-medium"
           title="PDFを選択"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
           </svg>
-          <span className="text-white">PDFを選択</span>
+          <span className="text-white font-medium">PDFを選択</span>
         </button>
 
         {/* テキストツール */}
         <button
           onClick={() => setIsTextMode(!isTextMode)}
-          className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors min-w-[140px] ${
+          className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors min-w-[140px] font-medium ${
             isTextMode
-              ? "bg-blue-500 text-white hover:bg-blue-600"
-              : "bg-blue-500 text-white hover:bg-blue-600"
+              ? "bg-blue-700 text-white hover:bg-blue-800 ring-2 ring-blue-300"
+              : "bg-blue-600 text-white hover:bg-blue-700"
           }`}
           title="テキストを追加"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
-          <span className="text-white">テキスト</span>
+          <span className="text-white font-medium">テキスト</span>
         </button>
 
         {/* 印鑑ツール */}
@@ -469,13 +436,13 @@ export default function PDFEditor() {
         />
         <button
           onClick={() => imageInputRef.current?.click()}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors min-w-[140px]"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors min-w-[140px] font-medium"
           title="印鑑を追加"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <span className="text-white">印鑑</span>
+          <span className="text-white font-medium">印鑑</span>
         </button>
 
         <div className="h-6 w-px bg-gray-300"></div>
@@ -521,7 +488,7 @@ export default function PDFEditor() {
               {selected.type === "text" && (
                 <>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-900 font-medium">フォント:</label>
+                    <label className="text-sm text-gray-900 font-medium">フォント:</label>
                     <input
                       type="number"
                       min="8"
@@ -530,12 +497,12 @@ export default function PDFEditor() {
                       onChange={(e) =>
                         handleFontSizeChange(selectedElement, Number(e.target.value))
                       }
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900"
+                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
                     />
                     <span className="text-xs text-gray-900">px</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-900 font-medium">幅:</label>
+                    <label className="text-sm text-gray-900 font-medium">幅:</label>
                     <input
                       type="number"
                       min="50"
@@ -544,7 +511,7 @@ export default function PDFEditor() {
                       onChange={(e) =>
                         handleTextWidthChange(selectedElement, Number(e.target.value))
                       }
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900"
+                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
                     />
                     <span className="text-xs text-gray-900">px</span>
                   </div>
@@ -554,7 +521,7 @@ export default function PDFEditor() {
               {selected.type === "image" && (
                 <>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-900 font-medium">幅:</label>
+                    <label className="text-sm text-gray-900 font-medium">幅:</label>
                     <input
                       type="number"
                       min="50"
@@ -567,12 +534,12 @@ export default function PDFEditor() {
                           selected.height
                         )
                       }
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900"
+                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
                     />
                     <span className="text-xs text-gray-900">px</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-900 font-medium">高さ:</label>
+                    <label className="text-sm text-gray-900 font-medium">高さ:</label>
                     <input
                       type="number"
                       min="50"
@@ -585,7 +552,7 @@ export default function PDFEditor() {
                           Number(e.target.value)
                         )
                       }
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900"
+                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
                     />
                     <span className="text-xs text-gray-900">px</span>
                   </div>
@@ -641,13 +608,13 @@ export default function PDFEditor() {
         <button
           onClick={handleSave}
           disabled={!pdfFile}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[140px]"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[140px] font-medium"
           title="PDFを保存"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          <span className="text-white">PDFを保存</span>
+          <span className="text-white font-medium">PDFを保存</span>
         </button>
       </div>
 
@@ -667,42 +634,37 @@ export default function PDFEditor() {
               onPageClick={handlePageClick}
               pageContainerRef={pageContainerRef}
             >
+              {/* 要素配置エリア */}
               {currentPageElements.map((element) => (
                 <div
                   key={element.id}
-                  data-element-container
+                  data-element-container="true"
                   data-element-id={element.id}
                   onClick={(e) => {
-                    // input要素の場合は親要素のクリックをスキップ（子要素で処理）
+                    e.stopPropagation();
                     const target = e.target as HTMLElement;
                     if (target.tagName === "INPUT") {
                       return;
                     }
-                    // img要素やdiv要素の場合は選択処理を実行
-                    e.stopPropagation();
-                    e.preventDefault();
+                    console.log("Element container clicked:", element.id);
                     handleElementClick(e, element.id);
                   }}
                   onMouseDown={(e) => {
-                    // input要素の場合は親要素のマウスダウンをスキップ（子要素で処理）
                     const target = e.target as HTMLElement;
                     if (target.tagName === "INPUT") {
                       return;
                     }
-                    // img要素やdiv要素の場合はドラッグ処理を実行
                     handleElementMouseDown(e, element.id);
                   }}
                   style={{
                     position: "absolute",
                     left: `${element.x * scale}px`,
                     top: `${element.y * scale}px`,
-                    cursor: selectedElement === element.id ? "move" : (element.type === "text" ? "default" : "move"),
-                    border:
-                      selectedElement === element.id
-                        ? "2px solid #3b82f6"
-                        : "2px solid transparent",
+                    cursor: dragging === element.id ? "move" : "pointer",
+                    border: selectedElement === element.id ? "2px solid #3b82f6" : "2px solid transparent",
                     padding: "2px",
-                    zIndex: selectedElement === element.id ? 10 : 1,
+                    zIndex: selectedElement === element.id ? 10 : 2,
+                    backgroundColor: selectedElement === element.id ? "rgba(59, 130, 246, 0.05)" : "transparent",
                   }}
                 >
                   {element.type === "text" ? (
@@ -719,20 +681,17 @@ export default function PDFEditor() {
                           e.preventDefault();
                           setSelectedElement(element.id);
                           setLastSelectedElement(element.id);
-                          // フォーカスを確実に設定
                           setTimeout(() => {
                             (e.target as HTMLInputElement).focus();
                           }, 0);
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          // 選択処理を実行
                           setSelectedElement(element.id);
                           setLastSelectedElement(element.id);
                         }}
                         onDoubleClick={(e) => {
                           e.stopPropagation();
-                          // ダブルクリックで編集モード
                           setSelectedElement(element.id);
                           setLastSelectedElement(element.id);
                           setTimeout(() => {
@@ -747,7 +706,6 @@ export default function PDFEditor() {
                         }}
                         onKeyDown={(e) => {
                           e.stopPropagation();
-                          // Escapeキーで選択解除
                           if (e.key === "Escape") {
                             setSelectedElement(null);
                             (e.target as HTMLInputElement).blur();
@@ -757,12 +715,11 @@ export default function PDFEditor() {
                           fontSize: `${element.fontSize * scale}px`,
                           border: "none",
                           outline: "none",
-                          background: "transparent",
+                          background: "white",
                           width: `${element.width * scale}px`,
                           padding: "2px 4px",
                           borderRadius: "2px",
                           cursor: "text",
-                          pointerEvents: "auto",
                           color: "#000000",
                           WebkitTextFillColor: "#000000",
                           caretColor: "#000000",
@@ -790,35 +747,11 @@ export default function PDFEditor() {
                       <img
                         src={element.src}
                         alt="印鑑"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // 選択処理を実行
-                          const elementId = element.id;
-                          if (selectedElement === elementId) {
-                            setSelectedElement(null);
-                          } else {
-                            setSelectedElement(elementId);
-                            setLastSelectedElement(elementId);
-                          }
-                        }}
-                        onMouseDown={(e) => {
-                          // ドラッグ開始（選択状態はonClickで設定）
-                          if (e.button === 0) {
-                            setIsClick(true);
-                            const elementRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                            const offsetX = e.clientX - elementRect.left;
-                            const offsetY = e.clientY - elementRect.top;
-                            setDragging(element.id);
-                            setDragOffset({ x: offsetX, y: offsetY });
-                            setDragStartPos({ x: e.clientX, y: e.clientY });
-                          }
-                        }}
                         style={{
                           width: `${element.width * scale}px`,
                           height: `${element.height * scale}px`,
-                          cursor: "move",
                           userSelect: "none",
-                          pointerEvents: "auto",
+                          pointerEvents: "none",
                           display: "block",
                         }}
                         draggable={false}

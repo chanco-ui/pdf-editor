@@ -84,7 +84,7 @@ export default function PDFViewer({
               strokeLinejoin="round"
             />
           </svg>
-          <p className="mt-2 text-sm text-gray-700">
+          <p className="mt-2 text-sm text-gray-700 font-medium">
             PDFファイルをドラッグ&ドロップ
           </p>
           <p className="text-xs text-gray-600">またはクリックして選択</p>
@@ -100,17 +100,17 @@ export default function PDFViewer({
           <button
             onClick={() => setPageNumber((prev) => Math.max(1, prev - 1))}
             disabled={pageNumber <= 1}
-            className="px-3 py-1 bg-gray-200 text-gray-900 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
+            className="px-3 py-1 bg-gray-200 text-gray-900 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 font-medium"
           >
             前へ
           </button>
-          <span className="text-sm text-gray-900">
+          <span className="text-sm text-gray-900 font-medium">
             {pageNumber} / {numPages}
           </span>
           <button
             onClick={() => setPageNumber((prev) => Math.min(numPages, prev + 1))}
             disabled={pageNumber >= numPages}
-            className="px-3 py-1 bg-gray-200 text-gray-900 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
+            className="px-3 py-1 bg-gray-200 text-gray-900 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 font-medium"
           >
             次へ
           </button>
@@ -127,7 +127,7 @@ export default function PDFViewer({
             {error ? (
               <div className="flex flex-col items-center justify-center h-96 p-4">
                 <p className="text-red-600 font-medium mb-2">エラー</p>
-                <p className="text-sm text-gray-900 text-center">{error}</p>
+                <p className="text-sm text-gray-700 text-center">{error}</p>
                 <button
                   onClick={() => {
                     setError(null);
@@ -136,7 +136,7 @@ export default function PDFViewer({
                       setFileUrl(url);
                     }
                   }}
-                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
                 >
                   再試行
                 </button>
