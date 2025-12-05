@@ -325,53 +325,111 @@ export default function PDFEditor() {
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!pdfFile) return;
+    if (!pdfFile) {
+      alert("PDFファイルが選択されていません");
+      return;
+    }
 
     try {
+      console.log("PDF保存開始");
+      console.log("要素数:", elements.length);
+      
       const arrayBuffer = await pdfFile.arrayBuffer();
+      console.log("PDFファイル読み込み完了");
+      
       const pdfDoc = await PDFDocument.load(arrayBuffer);
+      console.log("PDFドキュメント解析完了");
+      
       const pages = pdfDoc.getPages();
+      console.log("ページ数:", pages.length);
 
-      for (const element of elements) {
-        const page = pages[element.page - 1];
-        if (!page) continue;
-
-        if (element.type === "text") {
-          page.drawText(element.text, {
-            x: element.x,
-            y: page.getHeight() - element.y,
-            size: element.fontSize,
-            color: rgb(0, 0, 0), // 黒色を明示的に指定
-          });
-        } else if (element.type === "image") {
-          const imageBytes = await fetch(element.src).then((res) =>
-            res.arrayBuffer()
-          );
-          // 画像形式を判定（data URLから）
-          const isPng = element.src.startsWith("data:image/png");
-          const isJpeg = element.src.startsWith("data:image/jpeg") || 
-                         element.src.startsWith("data:image/jpg");
-          
-          let image;
-          if (isPng) {
-            image = await pdfDoc.embedPng(imageBytes);
-          } else if (isJpeg) {
-            image = await pdfDoc.embedJpg(imageBytes);
-          } else {
-            // デフォルトはPNGとして処理
-            image = await pdfDoc.embedPng(imageBytes);
-          }
-          
-          page.drawImage(image, {
-            x: element.x,
-            y: page.getHeight() - element.y - element.height,
-            width: element.width,
-            height: element.height,
-          });
+      // 日本語フォントを読み込む
+      let japaneseFont = null;
+      const hasJapaneseText = elements.some(
+        (el) => el.type === "text" && /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\uff00-\uffef]/.test(el.text)
+      );
+      
+      if (hasJapaneseText) {
+        console.log("日本語テキストを検出、フォント読み込み中...");
+        try {
+          const fontUrl = "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@5.0.0/files/noto-sans-jp-japanese-400-normal.woff";
+          const fontBytes = await fetch(fontUrl).then((res) => res.arrayBuffer());
+          japaneseFont = await pdfDoc.embedFont(fontBytes, { subset: true });
+          console.log("日本語フォント読み込み完了");
+        } catch (fontError) {
+          console.error("フォント読み込みエラー:", fontError);
+          alert("日本語フォントの読み込みに失敗しました。英数字のみ使用してください。");
+          return;
         }
       }
 
+      for (const element of elements) {
+        console.log("要素処理中:", element.type, element.id);
+        
+        const page = pages[element.page - 1];
+        if (!page) {
+          console.warn(`ページ ${element.page} が見つかりません`);
+          continue;
+        }
+
+        if (element.type === "text") {
+          console.log("テキスト追加:", element.text);
+          
+          // 日本語が含まれているかチェック
+          const containsJapanese = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\uff00-\uffef]/.test(element.text);
+          
+          page.drawText(element.text, {
+            x: element.x,
+            y: page.getHeight() - element.y - element.fontSize,
+            size: element.fontSize,
+            color: rgb(0, 0, 0),
+            font: containsJapanese && japaneseFont ? japaneseFont : undefined,
+          });
+        } else if (element.type === "image") {
+          console.log("画像追加:", element.src.substring(0, 50));
+          
+          try {
+            const imageBytes = await fetch(element.src).then((res) =>
+              res.arrayBuffer()
+            );
+            console.log("画像データ取得完了:", imageBytes.byteLength, "bytes");
+            
+            // 画像形式を判定
+            const isPng = element.src.startsWith("data:image/png");
+            const isJpeg = element.src.startsWith("data:image/jpeg") || 
+                           element.src.startsWith("data:image/jpg");
+            
+            let image;
+            if (isPng) {
+              console.log("PNG画像として埋め込み");
+              image = await pdfDoc.embedPng(imageBytes);
+            } else if (isJpeg) {
+              console.log("JPEG画像として埋め込み");
+              image = await pdfDoc.embedJpg(imageBytes);
+            } else {
+              console.log("不明な形式、PNGとして埋め込み試行");
+              image = await pdfDoc.embedPng(imageBytes);
+            }
+            
+            page.drawImage(image, {
+              x: element.x,
+              y: page.getHeight() - element.y - element.height,
+              width: element.width,
+              height: element.height,
+            });
+            console.log("画像埋め込み完了");
+          } catch (imgError) {
+            console.error("画像処理エラー:", imgError);
+            alert(`画像の埋め込みに失敗しました: ${imgError instanceof Error ? imgError.message : String(imgError)}`);
+            throw imgError;
+          }
+        }
+      }
+
+      console.log("PDF保存処理開始");
       const pdfBytes = await pdfDoc.save();
+      console.log("PDF保存完了:", pdfBytes.byteLength, "bytes");
+      
       const blob = new Blob([pdfBytes as BlobPart], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -379,9 +437,13 @@ export default function PDFEditor() {
       a.download = `edited-${pdfFile.name}`;
       a.click();
       URL.revokeObjectURL(url);
+      
+      console.log("ダウンロード完了");
+      alert("PDFを保存しました");
     } catch (error) {
       console.error("PDF保存エラー:", error);
-      alert("PDFの保存に失敗しました");
+      console.error("エラースタック:", error instanceof Error ? error.stack : "スタックなし");
+      alert(`PDFの保存に失敗しました\n\n詳細: ${error instanceof Error ? error.message : String(error)}\n\nコンソールを確認してください`);
     }
   }, [pdfFile, elements]);
 
