@@ -28,8 +28,10 @@ export default function PDFViewer({
 
   // PDF.js workerの設定
   useEffect(() => {
-    // ローカルのworkerファイルを使用
-    pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
+    // CDNから正しいバージョン（4.8.69）のworkerを読み込む
+    if (typeof window !== 'undefined') {
+      pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.worker.min.mjs`;
+    }
   }, []);
 
   // FileオブジェクトをURLに変換
@@ -63,31 +65,28 @@ export default function PDFViewer({
 
   const onDocumentLoadError = useCallback((error: Error) => {
     console.error("PDF読み込みエラー:", error);
-    setError(`PDFの読み込みに失敗しました: ${error.message}`);
+    console.error("エラー詳細:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
+    setError(`PDFの読み込みに失敗しました: ${error.message || '不明なエラー'}`);
     setLoading(false);
   }, []);
 
   if (!file) {
     return (
-      <div className="w-full h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
-        <div className="text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            stroke="currentColor"
-            fill="none"
-            viewBox="0 0 48 48"
-          >
-            <path
-              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <p className="mt-2 text-sm text-gray-700 font-medium">
-            PDFファイルをドラッグ&ドロップ
-          </p>
-          <p className="text-xs text-gray-600">またはクリックして選択</p>
+      <div className="w-full h-full flex items-center justify-center bg-slate-50 p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 max-w-md w-full">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-slate-200">
+              <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">PDFファイルを選択</h3>
+            <p className="text-sm text-slate-500">ドラッグ&ドロップ または ボタンからファイルを選択</p>
+          </div>
         </div>
       </div>
     );
@@ -100,23 +99,23 @@ export default function PDFViewer({
           <button
             onClick={() => setPageNumber((prev) => Math.max(1, prev - 1))}
             disabled={pageNumber <= 1}
-            className="px-3 py-1 bg-gray-200 text-gray-900 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 font-medium"
+            className="px-3 py-2 bg-slate-100 text-slate-900 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 transition-colors font-medium"
           >
             前へ
           </button>
-          <span className="text-sm text-gray-900 font-medium">
+          <span className="text-sm text-slate-900 font-medium">
             {pageNumber} / {numPages}
           </span>
           <button
             onClick={() => setPageNumber((prev) => Math.min(numPages, prev + 1))}
             disabled={pageNumber >= numPages}
-            className="px-3 py-1 bg-gray-200 text-gray-900 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 font-medium"
+            className="px-3 py-2 bg-slate-100 text-slate-900 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 transition-colors font-medium"
           >
             次へ
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto bg-gray-100 p-4" style={{ minHeight: 0, flex: "1 1 auto", overflowY: "auto", overflowX: "hidden" }}>
+      <div className="flex-1 overflow-auto bg-slate-100 p-6" style={{ minHeight: 0, flex: "1 1 auto", overflowY: "auto", overflowX: "hidden" }}>
         <div className="flex justify-center" style={{ minHeight: "100%" }}>
           <div
             ref={pageContainerRef}

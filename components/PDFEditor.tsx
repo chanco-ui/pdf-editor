@@ -77,23 +77,16 @@ export default function PDFEditor() {
 
   const handlePageClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      // data-element-container がクリックされた場合は何もしない
       const target = event.target as HTMLElement;
       const elementContainer = target.closest('[data-element-container]');
       if (elementContainer) {
-        console.log("handlePageClick: element clicked, skipping");
         return;
       }
-      
-      console.log("handlePageClick called, isTextMode:", isTextMode);
 
       if (isTextMode && pdfFile && pageContainerRef.current) {
-        // テキストモードの場合は新しいテキストを追加
         const rect = pageContainerRef.current.getBoundingClientRect();
         const x = (event.clientX - rect.left) / scale;
         const y = (event.clientY - rect.top) / scale;
-
-        console.log("Adding text at:", x, y);
 
         const newElement: TextElement = {
           id: `text-${Date.now()}`,
@@ -110,11 +103,7 @@ export default function PDFEditor() {
         setSelectedElement(newElement.id);
         setLastSelectedElement(newElement.id);
         setIsTextMode(false);
-        
-        console.log("Text element added:", newElement.id);
       } else {
-        // テキストモードでない場合は選択を解除
-        console.log("handlePageClick: deselecting");
         setSelectedElement(null);
       }
     },
@@ -140,7 +129,6 @@ export default function PDFEditor() {
               page: currentPage,
             };
             setElements((prev) => [...prev, newElement]);
-            // 少し遅延させて確実に選択状態を設定
             setTimeout(() => {
               setSelectedElement(newElement.id);
               setLastSelectedElement(newElement.id);
@@ -149,7 +137,6 @@ export default function PDFEditor() {
           img.src = e.target?.result as string;
         };
         reader.readAsDataURL(file);
-        // ファイル入力をリセットして、同じファイルを再度選択できるようにする
         if (imageInputRef.current) {
           imageInputRef.current.value = "";
         }
@@ -162,7 +149,6 @@ export default function PDFEditor() {
     (event: React.MouseEvent, elementId: string) => {
       event.stopPropagation();
       event.preventDefault();
-      console.log("Element clicked:", elementId);
       setSelectedElement(elementId);
       setLastSelectedElement(elementId);
     },
@@ -171,13 +157,11 @@ export default function PDFEditor() {
 
   const handleElementMouseDown = useCallback(
     (event: React.MouseEvent, elementId: string) => {
-      // input要素の場合はドラッグしない
       const target = event.target as HTMLElement;
       if (target.tagName === "INPUT") {
         return;
       }
       
-      // 左クリックのみ
       if (event.button !== 0) {
         return;
       }
@@ -196,7 +180,6 @@ export default function PDFEditor() {
       setDragOffset({ x: offsetX, y: offsetY });
       setIsClick(true);
       
-      // 選択状態を即座に設定
       setSelectedElement(elementId);
       setLastSelectedElement(elementId);
     },
@@ -207,20 +190,16 @@ export default function PDFEditor() {
     (event: MouseEvent) => {
       if (!dragging || !pageContainerRef.current) return;
 
-      // 移動距離を計算
       const moveDistance = Math.sqrt(
         Math.pow(event.clientX - dragStartPos.x, 2) + 
         Math.pow(event.clientY - dragStartPos.y, 2)
       );
       
-      // 5px以上移動したらドラッグとして扱う
       if (moveDistance > 5) {
         setIsClick(false);
       }
 
       const pageRect = pageContainerRef.current.getBoundingClientRect();
-      
-      // PDFページ内の相対位置を計算
       const x = (event.clientX - pageRect.left - dragOffset.x) / scale;
       const y = (event.clientY - pageRect.top - dragOffset.y) / scale;
 
@@ -235,9 +214,9 @@ export default function PDFEditor() {
 
   const handleMouseUp = useCallback(() => {
     if (dragging) {
-      // ドラッグ終了時も選択状態を維持
-      setSelectedElement(dragging);
-      setLastSelectedElement(dragging);
+      const elementId = dragging;
+      setSelectedElement(elementId);
+      setLastSelectedElement(elementId);
     }
     setDragging(null);
     setIsClick(true);
@@ -263,17 +242,14 @@ export default function PDFEditor() {
     }
   }, [selectedElement, lastSelectedElement]);
 
-  // DeleteキーとESCキーで削除・選択解除
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // ESCキーで選択解除
       if (event.key === "Escape") {
         if (document.activeElement?.tagName !== "INPUT") {
           setSelectedElement(null);
         }
         return;
       }
-      // Deleteキーで削除
       if (event.key === "Delete" || event.key === "Backspace") {
         if (document.activeElement?.tagName !== "INPUT") {
           const elementToDelete = selectedElement || lastSelectedElement;
@@ -331,51 +307,32 @@ export default function PDFEditor() {
     }
 
     try {
-      console.log("PDF保存開始");
-      console.log("要素数:", elements.length);
-      
       const arrayBuffer = await pdfFile.arrayBuffer();
-      console.log("PDFファイル読み込み完了");
-      
       const pdfDoc = await PDFDocument.load(arrayBuffer);
-      console.log("PDFドキュメント解析完了");
-      
       const pages = pdfDoc.getPages();
-      console.log("ページ数:", pages.length);
 
-      // 日本語フォントを読み込む
       let japaneseFont = null;
       const hasJapaneseText = elements.some(
         (el) => el.type === "text" && /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\uff00-\uffef]/.test(el.text)
       );
       
       if (hasJapaneseText) {
-        console.log("日本語テキストを検出、フォント読み込み中...");
         try {
           const fontUrl = "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@5.0.0/files/noto-sans-jp-japanese-400-normal.woff";
           const fontBytes = await fetch(fontUrl).then((res) => res.arrayBuffer());
           japaneseFont = await pdfDoc.embedFont(fontBytes, { subset: true });
-          console.log("日本語フォント読み込み完了");
         } catch (fontError) {
           console.error("フォント読み込みエラー:", fontError);
-          alert("日本語フォントの読み込みに失敗しました。英数字のみ使用してください。");
+          alert("日本語フォントの読み込みに失敗しました。");
           return;
         }
       }
 
       for (const element of elements) {
-        console.log("要素処理中:", element.type, element.id);
-        
         const page = pages[element.page - 1];
-        if (!page) {
-          console.warn(`ページ ${element.page} が見つかりません`);
-          continue;
-        }
+        if (!page) continue;
 
         if (element.type === "text") {
-          console.log("テキスト追加:", element.text);
-          
-          // 日本語が含まれているかチェック
           const containsJapanese = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\uff00-\uffef]/.test(element.text);
           
           page.drawText(element.text, {
@@ -386,50 +343,29 @@ export default function PDFEditor() {
             font: containsJapanese && japaneseFont ? japaneseFont : undefined,
           });
         } else if (element.type === "image") {
-          console.log("画像追加:", element.src.substring(0, 50));
+          const imageBytes = await fetch(element.src).then((res) => res.arrayBuffer());
+          const isPng = element.src.startsWith("data:image/png");
+          const isJpeg = element.src.startsWith("data:image/jpeg") || element.src.startsWith("data:image/jpg");
           
-          try {
-            const imageBytes = await fetch(element.src).then((res) =>
-              res.arrayBuffer()
-            );
-            console.log("画像データ取得完了:", imageBytes.byteLength, "bytes");
-            
-            // 画像形式を判定
-            const isPng = element.src.startsWith("data:image/png");
-            const isJpeg = element.src.startsWith("data:image/jpeg") || 
-                           element.src.startsWith("data:image/jpg");
-            
-            let image;
-            if (isPng) {
-              console.log("PNG画像として埋め込み");
-              image = await pdfDoc.embedPng(imageBytes);
-            } else if (isJpeg) {
-              console.log("JPEG画像として埋め込み");
-              image = await pdfDoc.embedJpg(imageBytes);
-            } else {
-              console.log("不明な形式、PNGとして埋め込み試行");
-              image = await pdfDoc.embedPng(imageBytes);
-            }
-            
-            page.drawImage(image, {
-              x: element.x,
-              y: page.getHeight() - element.y - element.height,
-              width: element.width,
-              height: element.height,
-            });
-            console.log("画像埋め込み完了");
-          } catch (imgError) {
-            console.error("画像処理エラー:", imgError);
-            alert(`画像の埋め込みに失敗しました: ${imgError instanceof Error ? imgError.message : String(imgError)}`);
-            throw imgError;
+          let image;
+          if (isPng) {
+            image = await pdfDoc.embedPng(imageBytes);
+          } else if (isJpeg) {
+            image = await pdfDoc.embedJpg(imageBytes);
+          } else {
+            image = await pdfDoc.embedPng(imageBytes);
           }
+          
+          page.drawImage(image, {
+            x: element.x,
+            y: page.getHeight() - element.y - element.height,
+            width: element.width,
+            height: element.height,
+          });
         }
       }
 
-      console.log("PDF保存処理開始");
       const pdfBytes = await pdfDoc.save();
-      console.log("PDF保存完了:", pdfBytes.byteLength, "bytes");
-      
       const blob = new Blob([pdfBytes as BlobPart], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -437,251 +373,198 @@ export default function PDFEditor() {
       a.download = `edited-${pdfFile.name}`;
       a.click();
       URL.revokeObjectURL(url);
-      
-      console.log("ダウンロード完了");
       alert("PDFを保存しました");
     } catch (error) {
       console.error("PDF保存エラー:", error);
-      console.error("エラースタック:", error instanceof Error ? error.stack : "スタックなし");
-      alert(`PDFの保存に失敗しました\n\n詳細: ${error instanceof Error ? error.message : String(error)}\n\nコンソールを確認してください`);
+      alert(`PDFの保存に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, [pdfFile, elements]);
 
   const currentPageElements = elements.filter((el) => el.page === currentPage);
-
   return (
     <div className="flex flex-col pdf-editor" style={{ height: "100%", overflow: "hidden" }}>
       {/* 上部ツールバー */}
-      <div className="bg-white border-b border-gray-300 px-4 py-3 flex flex-wrap items-center justify-center gap-4 flex-shrink-0">
-        {/* PDFファイル選択 */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/pdf"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors min-w-[140px] font-medium"
-          title="PDFを選択"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <span className="text-white font-medium">PDFを選択</span>
-        </button>
+      <div className="bg-red-500 border-b border-slate-200 px-4 py-3 shadow-sm overflow-x-auto flex-shrink-0">
 
-        {/* テキストツール */}
-        <button
-          onClick={() => setIsTextMode(!isTextMode)}
-          className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors min-w-[140px] font-medium ${
-            isTextMode
-              ? "bg-blue-700 text-white hover:bg-blue-800 ring-2 ring-blue-300"
-              : "bg-blue-600 text-white hover:bg-blue-700"
-          }`}
-          title="テキストを追加"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          <span className="text-white font-medium">テキスト</span>
-        </button>
+        {/*<h1 className="text-white text-2xl">TEST - 新しいコードです</h1>*/}
 
-        {/* 印鑑ツール */}
-        <input
-          ref={imageInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleImageUpload}
-          className="hidden"
-        />
-        <button
-          onClick={() => imageInputRef.current?.click()}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors min-w-[140px] font-medium"
-          title="印鑑を追加"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          <span className="text-white font-medium">印鑑</span>
-        </button>
-
-        <div className="h-6 w-px bg-gray-300"></div>
-
-        <div className="h-6 w-px bg-gray-300"></div>
-
-        {/* ズーム */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-max">
+          {/* PDFファイル選択 */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
           <button
-            onClick={() => setScale((prev) => Math.max(0.5, prev - 0.1))}
-            className="px-3 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors"
-            title="縮小"
+            onClick={() => fileInputRef.current?.click()}
+            className="group flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-300 text-slate-700 rounded-lg hover:border-indigo-500 hover:text-indigo-600 hover:shadow-md transition-all duration-200 font-medium whitespace-nowrap"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+            <svg className="w-5 h-5 group-hover:scale-110 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
+            <span>PDF選択</span>
           </button>
-          <span className="text-sm text-gray-900 min-w-[60px] text-center font-medium">
-            {Math.round(scale * 100)}%
-          </span>
+
+          <div className="w-px h-8 bg-slate-200 flex-shrink-0"></div>
+
+          {/* テキストツール */}
           <button
-            onClick={() => setScale((prev) => Math.min(2, prev + 0.1))}
-            className="px-3 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors"
-            title="拡大"
+            onClick={() => setIsTextMode(!isTextMode)}
+            className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
+              isTextMode
+                ? "bg-indigo-50 border-2 border-indigo-200 text-indigo-700 shadow-md"
+                : "bg-white border-2 border-slate-300 text-slate-700 hover:border-indigo-500 hover:text-indigo-600 hover:shadow-md"
+            }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+            <svg className="w-5 h-5 group-hover:scale-110 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
+            <span>テキスト</span>
+          </button>
+
+          {/* 印鑑ツール */}
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+          <button
+            onClick={() => imageInputRef.current?.click()}
+            className="group flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-300 text-slate-700 rounded-lg hover:border-indigo-500 hover:text-indigo-600 hover:shadow-md transition-all duration-200 font-medium whitespace-nowrap"
+          >
+            <svg className="w-5 h-5 group-hover:scale-110 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>印鑑</span>
+          </button>
+
+          <div className="w-px h-8 bg-slate-200 flex-shrink-0"></div>
+
+          {/* ズーム */}
+          <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 whitespace-nowrap">
+            <button
+              onClick={() => setScale((prev) => Math.max(0.5, prev - 0.1))}
+              className="p-1.5 hover:bg-white rounded transition-colors flex-shrink-0"
+            >
+              <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+              </svg>
+            </button>
+            <span className="text-sm font-medium text-slate-700 min-w-[50px] text-center">
+              {Math.round(scale * 100)}%
+            </span>
+            <button
+              onClick={() => setScale((prev) => Math.min(2, prev + 0.1))}
+              className="p-1.5 hover:bg-white rounded transition-colors flex-shrink-0"
+            >
+              <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* 選択中の要素の編集ツール */}
+          {selectedElement && (() => {
+            const selected = elements.find((el) => el.id === selectedElement);
+            if (!selected) return null;
+
+            return (
+              <>
+                <div className="w-px h-8 bg-slate-200 flex-shrink-0"></div>
+                
+                {selected.type === "text" && (
+                  <>
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <label className="text-xs text-slate-700 font-medium">フォント:</label>
+                      <input
+                        type="number"
+                        min="8"
+                        max="72"
+                        value={selected.fontSize}
+                        onChange={(e) => handleFontSizeChange(selectedElement, Number(e.target.value))}
+                        className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+                      />
+                      <span className="text-xs text-slate-600">px</span>
+                    </div>
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <label className="text-xs text-slate-700 font-medium">幅:</label>
+                      <input
+                        type="number"
+                        min="50"
+                        max="500"
+                        value={Math.round(selected.width)}
+                        onChange={(e) => handleTextWidthChange(selectedElement, Number(e.target.value))}
+                        className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+                      />
+                      <span className="text-xs text-slate-600">px</span>
+                    </div>
+                  </>
+                )}
+
+                {selected.type === "image" && (
+                  <>
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <label className="text-xs text-slate-700 font-medium">幅:</label>
+                      <input
+                        type="number"
+                        min="50"
+                        max="500"
+                        value={Math.round(selected.width)}
+                        onChange={(e) => handleImageSizeChange(selectedElement, Number(e.target.value), selected.height)}
+                        className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+                      />
+                      <span className="text-xs text-slate-600">px</span>
+                    </div>
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <label className="text-xs text-slate-700 font-medium">高さ:</label>
+                      <input
+                        type="number"
+                        min="50"
+                        max="500"
+                        value={Math.round(selected.height)}
+                        onChange={(e) => handleImageSizeChange(selectedElement, selected.width, Number(e.target.value))}
+                        className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+                      />
+                      <span className="text-xs text-slate-600">px</span>
+                    </div>
+                  </>
+                )}
+
+                <div className="w-px h-8 bg-slate-200 flex-shrink-0"></div>
+
+                <button
+                  onClick={handleDelete}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-50 border-2 border-red-200 text-red-700 rounded-lg hover:bg-red-100 hover:border-red-300 transition-all duration-200 font-medium whitespace-nowrap"
+                >
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <span>削除</span>
+                </button>
+              </>
+            );
+          })()}
+
+          <div className="flex-1"></div>
+
+          <button
+            onClick={handleSave}
+            disabled={!pdfFile}
+            className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all duration-200 font-medium whitespace-nowrap"
+          >
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span>PDFを保存</span>
           </button>
         </div>
-
-        <div className="flex-1"></div>
-
-        {/* 選択中の要素の編集ツール */}
-        {selectedElement && (() => {
-          const selected = elements.find((el) => el.id === selectedElement);
-          if (!selected) return null;
-
-          return (
-            <>
-              <div className="h-6 w-px bg-gray-300"></div>
-              
-              {selected.type === "text" && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-900 font-medium">フォント:</label>
-                    <input
-                      type="number"
-                      min="8"
-                      max="72"
-                      value={selected.fontSize}
-                      onChange={(e) =>
-                        handleFontSizeChange(selectedElement, Number(e.target.value))
-                      }
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                    />
-                    <span className="text-xs text-gray-900">px</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-900 font-medium">幅:</label>
-                    <input
-                      type="number"
-                      min="50"
-                      max="500"
-                      value={Math.round(selected.width)}
-                      onChange={(e) =>
-                        handleTextWidthChange(selectedElement, Number(e.target.value))
-                      }
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                    />
-                    <span className="text-xs text-gray-900">px</span>
-                  </div>
-                </>
-              )}
-
-              {selected.type === "image" && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-900 font-medium">幅:</label>
-                    <input
-                      type="number"
-                      min="50"
-                      max="500"
-                      value={Math.round(selected.width)}
-                      onChange={(e) =>
-                        handleImageSizeChange(
-                          selectedElement,
-                          Number(e.target.value),
-                          selected.height
-                        )
-                      }
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                    />
-                    <span className="text-xs text-gray-900">px</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-900 font-medium">高さ:</label>
-                    <input
-                      type="number"
-                      min="50"
-                      max="500"
-                      value={Math.round(selected.height)}
-                      onChange={(e) =>
-                        handleImageSizeChange(
-                          selectedElement,
-                          selected.width,
-                          Number(e.target.value)
-                        )
-                      }
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                    />
-                    <span className="text-xs text-gray-900">px</span>
-                  </div>
-                  <button
-                    onClick={() =>
-                      handleImageSizeChange(
-                        selectedElement,
-                        selected.width * 1.1,
-                        selected.height * 1.1
-                      )
-                    }
-                    className="px-3 py-1 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors"
-                    title="10%拡大"
-                  >
-                    +
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleImageSizeChange(
-                        selectedElement,
-                        selected.width * 0.9,
-                        selected.height * 0.9
-                      )
-                    }
-                    className="px-3 py-1 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors"
-                    title="10%縮小"
-                  >
-                    -
-                  </button>
-                </>
-              )}
-
-              <div className="h-6 w-px bg-gray-300"></div>
-
-              {/* 削除ボタン */}
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium flex items-center gap-2 transition-colors"
-                title="削除 (Deleteキー)"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                <span className="text-white">削除</span>
-              </button>
-            </>
-          );
-        })()}
-
-        <div className="h-6 w-px bg-gray-300"></div>
-
-        {/* 保存ボタン */}
-        <button
-          onClick={handleSave}
-          disabled={!pdfFile}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[140px] font-medium"
-          title="PDFを保存"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          <span className="text-white font-medium">PDFを保存</span>
-        </button>
       </div>
 
-      <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0, height: "100%" }}>
-        {/* 左側: PDFプレビュー */}
+      <div className="flex-1 flex overflow-hidden bg-slate-50" style={{ minHeight: 0, height: "100%" }}>
         <div className="flex-1 flex flex-col" style={{ minWidth: 0, overflow: "hidden" }}>
           <div
             ref={containerRef}
@@ -696,7 +579,6 @@ export default function PDFEditor() {
               onPageClick={handlePageClick}
               pageContainerRef={pageContainerRef}
             >
-              {/* 要素配置エリア */}
               {currentPageElements.map((element) => (
                 <div
                   key={element.id}
@@ -708,7 +590,6 @@ export default function PDFEditor() {
                     if (target.tagName === "INPUT") {
                       return;
                     }
-                    console.log("Element container clicked:", element.id);
                     handleElementClick(e, element.id);
                   }}
                   onMouseDown={(e) => {
@@ -723,10 +604,11 @@ export default function PDFEditor() {
                     left: `${element.x * scale}px`,
                     top: `${element.y * scale}px`,
                     cursor: dragging === element.id ? "move" : "pointer",
-                    border: selectedElement === element.id ? "2px solid #3b82f6" : "2px solid transparent",
+                    border: selectedElement === element.id ? "2px solid #4F46E5" : "2px solid transparent",
                     padding: "2px",
                     zIndex: selectedElement === element.id ? 10 : 2,
-                    backgroundColor: selectedElement === element.id ? "rgba(59, 130, 246, 0.05)" : "transparent",
+                    backgroundColor: selectedElement === element.id ? "rgba(79, 70, 229, 0.05)" : "transparent",
+                    borderRadius: "4px",
                   }}
                 >
                   {element.type === "text" ? (
