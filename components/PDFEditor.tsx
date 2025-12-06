@@ -41,6 +41,7 @@ export default function PDFEditor() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
   const [isClick, setIsClick] = useState(true);
+  const [resizing, setResizing] = useState<{ elementId: string; handle: string; startX: number; startY: number; startWidth: number; startHeight: number; startElementX: number; startElementY: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -155,10 +156,32 @@ export default function PDFEditor() {
     []
   );
 
+  const handleResizeStart = useCallback(
+    (event: React.MouseEvent, elementId: string, handle: string) => {
+      event.stopPropagation();
+      event.preventDefault();
+      
+      const element = elements.find((el) => el.id === elementId);
+      if (!element || !pageContainerRef.current) return;
+
+      setResizing({
+        elementId,
+        handle,
+        startX: event.clientX,
+        startY: event.clientY,
+        startWidth: element.width,
+        startHeight: element.type === "image" ? element.height : element.fontSize,
+        startElementX: element.x,
+        startElementY: element.y,
+      });
+    },
+    [elements]
+  );
+
   const handleElementMouseDown = useCallback(
     (event: React.MouseEvent, elementId: string) => {
       const target = event.target as HTMLElement;
-      if (target.tagName === "INPUT") {
+      if (target.tagName === "INPUT" || target.classList.contains("resize-handle")) {
         return;
       }
       
@@ -188,6 +211,57 @@ export default function PDFEditor() {
 
   const handleMouseMove = useCallback(
     (event: MouseEvent) => {
+      if (resizing && pageContainerRef.current) {
+        const element = elements.find((el) => el.id === resizing.elementId);
+        if (!element) return;
+
+        const deltaX = (event.clientX - resizing.startX) / scale;
+        const deltaY = (event.clientY - resizing.startY) / scale;
+
+        let newWidth = resizing.startWidth;
+        let newHeight = resizing.startHeight;
+        let newX = resizing.startElementX;
+        let newY = resizing.startElementY;
+
+        const minSize = element.type === "image" ? 20 : 8; // 画像は20px、テキストは8px（フォントサイズ）
+
+        if (resizing.handle.includes("right")) {
+          newWidth = Math.max(minSize, resizing.startWidth + deltaX);
+        }
+        if (resizing.handle.includes("left")) {
+          newWidth = Math.max(minSize, resizing.startWidth - deltaX);
+          newX = resizing.startElementX + (resizing.startWidth - newWidth);
+        }
+        if (resizing.handle.includes("bottom")) {
+          newHeight = Math.max(minSize, resizing.startHeight + deltaY);
+        }
+        if (resizing.handle.includes("top")) {
+          newHeight = Math.max(minSize, resizing.startHeight - deltaY);
+          newY = resizing.startElementY + (resizing.startHeight - newHeight);
+        }
+
+        setElements((prev) =>
+          prev.map((el) => {
+            if (el.id === resizing.elementId) {
+              if (el.type === "text") {
+                // テキスト要素は幅とフォントサイズ（高さ）を変更
+                return { 
+                  ...el, 
+                  width: newWidth, 
+                  fontSize: newHeight, // フォントサイズとして使用
+                  x: newX,
+                  y: newY 
+                };
+              } else if (el.type === "image") {
+                return { ...el, width: newWidth, height: newHeight, x: newX, y: newY };
+              }
+            }
+            return el;
+          })
+        );
+        return;
+      }
+
       if (!dragging || !pageContainerRef.current) return;
 
       const moveDistance = Math.sqrt(
@@ -209,10 +283,13 @@ export default function PDFEditor() {
         )
       );
     },
-    [dragging, dragOffset, dragStartPos, scale]
+    [dragging, dragOffset, dragStartPos, scale, resizing, elements]
   );
 
   const handleMouseUp = useCallback(() => {
+    if (resizing) {
+      setResizing(null);
+    }
     if (dragging) {
       const elementId = dragging;
       setSelectedElement(elementId);
@@ -220,10 +297,10 @@ export default function PDFEditor() {
     }
     setDragging(null);
     setIsClick(true);
-  }, [dragging]);
+  }, [dragging, resizing]);
 
   useEffect(() => {
-    if (dragging) {
+    if (dragging || resizing) {
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
       return () => {
@@ -231,7 +308,7 @@ export default function PDFEditor() {
         window.removeEventListener("mouseup", handleMouseUp);
       };
     }
-  }, [dragging, handleMouseMove, handleMouseUp]);
+  }, [dragging, resizing, handleMouseMove, handleMouseUp]);
 
   const handleDelete = useCallback(() => {
     const elementToDelete = selectedElement || lastSelectedElement;
@@ -672,18 +749,37 @@ export default function PDFEditor() {
                         autoFocus={selectedElement === element.id}
                       />
                       {selectedElement === element.id && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            handleDelete();
-                          }}
-                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors z-20"
-                          title="削除"
-                          style={{ fontSize: "12px" }}
-                        >
-                          ×
-                        </button>
+                        <>
+                          {/* リサイズハンドル - 四隅（テキストは幅とフォントサイズを変更可能） */}
+                          <div
+                            className="resize-handle absolute -top-1.5 -left-1.5 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize z-30"
+                            onMouseDown={(e) => handleResizeStart(e, element.id, "top-left")}
+                          />
+                          <div
+                            className="resize-handle absolute -top-1.5 -right-1.5 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full cursor-nesw-resize z-30"
+                            onMouseDown={(e) => handleResizeStart(e, element.id, "top-right")}
+                          />
+                          <div
+                            className="resize-handle absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full cursor-nesw-resize z-30"
+                            onMouseDown={(e) => handleResizeStart(e, element.id, "bottom-left")}
+                          />
+                          <div
+                            className="resize-handle absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize z-30"
+                            onMouseDown={(e) => handleResizeStart(e, element.id, "bottom-right")}
+                          />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              handleDelete();
+                            }}
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors z-20"
+                            title="削除"
+                            style={{ fontSize: "12px" }}
+                          >
+                            ×
+                          </button>
+                        </>
                       )}
                     </>
                   ) : (
@@ -701,18 +797,37 @@ export default function PDFEditor() {
                         draggable={false}
                       />
                       {selectedElement === element.id && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            handleDelete();
-                          }}
-                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors z-20"
-                          title="削除"
-                          style={{ fontSize: "12px" }}
-                        >
-                          ×
-                        </button>
+                        <>
+                          {/* リサイズハンドル - 四隅 */}
+                          <div
+                            className="resize-handle absolute -top-1.5 -left-1.5 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize z-30"
+                            onMouseDown={(e) => handleResizeStart(e, element.id, "top-left")}
+                          />
+                          <div
+                            className="resize-handle absolute -top-1.5 -right-1.5 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full cursor-nesw-resize z-30"
+                            onMouseDown={(e) => handleResizeStart(e, element.id, "top-right")}
+                          />
+                          <div
+                            className="resize-handle absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full cursor-nesw-resize z-30"
+                            onMouseDown={(e) => handleResizeStart(e, element.id, "bottom-left")}
+                          />
+                          <div
+                            className="resize-handle absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize z-30"
+                            onMouseDown={(e) => handleResizeStart(e, element.id, "bottom-right")}
+                          />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              handleDelete();
+                            }}
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors z-20"
+                            title="削除"
+                            style={{ fontSize: "12px" }}
+                          >
+                            ×
+                          </button>
+                        </>
                       )}
                     </>
                   )}
