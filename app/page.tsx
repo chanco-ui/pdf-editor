@@ -20,11 +20,6 @@ export default function HomePage() {
               <p className="text-xs text-slate-500 leading-tight">テキスト・印鑑の挿入が簡単に</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full font-medium">
-              ゲストモード
-            </span>
-          </div>
         </div>
       </header>
 

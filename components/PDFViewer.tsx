@@ -11,6 +11,7 @@ interface PDFViewerProps {
   onPageClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
   children?: React.ReactNode;
   pageContainerRef?: React.RefObject<HTMLDivElement | null>;
+  onFileSelect?: () => void;
 }
 
 export default function PDFViewer({
@@ -19,6 +20,7 @@ export default function PDFViewer({
   onPageClick,
   children,
   pageContainerRef,
+  onFileSelect,
 }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
@@ -85,7 +87,15 @@ export default function PDFViewer({
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-slate-900 mb-2">PDFファイルを選択</h3>
-            <p className="text-sm text-slate-500">ドラッグ&ドロップ または ボタンからファイルを選択</p>
+            <p className="text-sm text-slate-500 mb-4">ドラッグ&ドロップ または ボタンからファイルを選択</p>
+            {onFileSelect && (
+              <button
+                onClick={onFileSelect}
+                className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-md hover:shadow-lg"
+              >
+                PDFファイルを選択
+              </button>
+            )}
           </div>
         </div>
       </div>

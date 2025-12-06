@@ -395,13 +395,24 @@ export default function PDFEditor() {
       
       if (hasJapaneseText) {
         try {
-          const fontUrl = "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@5.0.0/files/noto-sans-jp-japanese-400-normal.woff";
-          const fontBytes = await fetch(fontUrl).then((res) => res.arrayBuffer());
+          // jsDelivrからTTF形式のNoto Sans JPを取得
+          const fontUrl = "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosansjp/NotoSansJP-Regular.ttf";
+          const response = await fetch(fontUrl);
+          if (!response.ok) {
+            throw new Error(`フォントのダウンロードに失敗しました: ${response.status} ${response.statusText}`);
+          }
+          const fontBytes = await response.arrayBuffer();
+          if (fontBytes.byteLength === 0) {
+            throw new Error("フォントファイルが空です");
+          }
           japaneseFont = await pdfDoc.embedFont(fontBytes, { subset: true });
+          console.log("日本語フォントの読み込みに成功しました");
         } catch (fontError) {
           console.error("フォント読み込みエラー:", fontError);
-          alert("日本語フォントの読み込みに失敗しました。");
-          return;
+          // フォントが読み込めない場合でも処理を続行（デフォルトフォントを使用）
+          console.warn("日本語フォントの読み込みに失敗しました。デフォルトフォントを使用します。");
+          // エラーを表示するが、処理は続行
+          alert("日本語フォントの読み込みに失敗しました。デフォルトフォントで保存されます。日本語が正しく表示されない可能性があります。");
         }
       }
 
@@ -655,6 +666,7 @@ export default function PDFEditor() {
               scale={scale}
               onPageClick={handlePageClick}
               pageContainerRef={pageContainerRef}
+              onFileSelect={() => fileInputRef.current?.click()}
             >
               {currentPageElements.map((element) => (
                 <div
