@@ -41,7 +41,7 @@ export default function PDFEditor() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
   const [isClick, setIsClick] = useState(true);
-  const [resizing, setResizing] = useState<{ elementId: string; handle: string; startX: number; startY: number; startWidth: number; startHeight: number; startElementX: number; startElementY: number } | null>(null);
+  const [resizing, setResizing] = useState<{ elementId: string; handle: string; startX: number; startY: number; startWidth: number; startHeight: number; startElementX: number; startElementY: number; aspectRatio?: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -164,15 +164,20 @@ export default function PDFEditor() {
       const element = elements.find((el) => el.id === elementId);
       if (!element || !pageContainerRef.current) return;
 
+      const startWidth = element.width;
+      const startHeight = element.type === "image" ? element.height : element.fontSize;
+      const aspectRatio = element.type === "image" ? startWidth / startHeight : undefined;
+
       setResizing({
         elementId,
         handle,
         startX: event.clientX,
         startY: event.clientY,
-        startWidth: element.width,
-        startHeight: element.type === "image" ? element.height : element.fontSize,
+        startWidth,
+        startHeight,
         startElementX: element.x,
         startElementY: element.y,
+        aspectRatio,
       });
     },
     [elements]
@@ -225,19 +230,71 @@ export default function PDFEditor() {
 
         const minSize = element.type === "image" ? 20 : 8; // 画像は20px、テキストは8px（フォントサイズ）
 
-        if (resizing.handle.includes("right")) {
-          newWidth = Math.max(minSize, resizing.startWidth + deltaX);
-        }
-        if (resizing.handle.includes("left")) {
-          newWidth = Math.max(minSize, resizing.startWidth - deltaX);
-          newX = resizing.startElementX + (resizing.startWidth - newWidth);
-        }
-        if (resizing.handle.includes("bottom")) {
-          newHeight = Math.max(minSize, resizing.startHeight + deltaY);
-        }
-        if (resizing.handle.includes("top")) {
-          newHeight = Math.max(minSize, resizing.startHeight - deltaY);
-          newY = resizing.startElementY + (resizing.startHeight - newHeight);
+        if (element.type === "image" && resizing.aspectRatio) {
+          // 画像要素の場合、アスペクト比を保持
+          const isCorner = (resizing.handle.includes("top") || resizing.handle.includes("bottom")) && 
+                          (resizing.handle.includes("left") || resizing.handle.includes("right"));
+          
+          if (isCorner) {
+            // 四隅のリサイズ: マウスの移動距離の大きい方を使用してアスペクト比を保持
+            // 各コーナーでの拡大方向を判定
+            let scaleDelta = 0;
+            if (resizing.handle === "bottom-right") {
+              // 右下: 右または下にドラッグで拡大
+              scaleDelta = Math.max(deltaX, deltaY);
+            } else if (resizing.handle === "bottom-left") {
+              // 左下: 左または下にドラッグで拡大
+              scaleDelta = Math.max(-deltaX, deltaY);
+            } else if (resizing.handle === "top-right") {
+              // 右上: 右または上にドラッグで拡大
+              scaleDelta = Math.max(deltaX, -deltaY);
+            } else if (resizing.handle === "top-left") {
+              // 左上: 左または上にドラッグで拡大
+              scaleDelta = Math.max(-deltaX, -deltaY);
+            }
+            
+            newWidth = Math.max(minSize, resizing.startWidth + scaleDelta);
+            newHeight = newWidth / resizing.aspectRatio;
+            
+            // 位置を調整
+            if (resizing.handle.includes("left")) {
+              newX = resizing.startElementX + (resizing.startWidth - newWidth);
+            }
+            if (resizing.handle.includes("top")) {
+              newY = resizing.startElementY + (resizing.startHeight - newHeight);
+            }
+          } else {
+            // 上下左右のリサイズ: アスペクト比を保持
+            if (resizing.handle.includes("right") || resizing.handle.includes("left")) {
+              newWidth = Math.max(minSize, resizing.startWidth + (resizing.handle.includes("right") ? deltaX : -deltaX));
+              newHeight = newWidth / resizing.aspectRatio;
+              if (resizing.handle.includes("left")) {
+                newX = resizing.startElementX + (resizing.startWidth - newWidth);
+              }
+            } else if (resizing.handle.includes("top") || resizing.handle.includes("bottom")) {
+              newHeight = Math.max(minSize, resizing.startHeight + (resizing.handle.includes("bottom") ? deltaY : -deltaY));
+              newWidth = newHeight * resizing.aspectRatio;
+              if (resizing.handle.includes("top")) {
+                newY = resizing.startElementY + (resizing.startHeight - newHeight);
+              }
+            }
+          }
+        } else {
+          // テキスト要素の場合、従来通り
+          if (resizing.handle.includes("right")) {
+            newWidth = Math.max(minSize, resizing.startWidth + deltaX);
+          }
+          if (resizing.handle.includes("left")) {
+            newWidth = Math.max(minSize, resizing.startWidth - deltaX);
+            newX = resizing.startElementX + (resizing.startWidth - newWidth);
+          }
+          if (resizing.handle.includes("bottom")) {
+            newHeight = Math.max(minSize, resizing.startHeight + deltaY);
+          }
+          if (resizing.handle.includes("top")) {
+            newHeight = Math.max(minSize, resizing.startHeight - deltaY);
+            newY = resizing.startElementY + (resizing.startHeight - newHeight);
+          }
         }
 
         setElements((prev) =>
@@ -472,7 +529,7 @@ export default function PDFEditor() {
   return (
     <div className="flex flex-col pdf-editor" style={{ height: "100%", overflow: "hidden" }}>
       {/* 上部ツールバー */}
-      <div className="bg-red-500 border-b border-slate-200 px-4 py-3 shadow-sm overflow-x-auto flex-shrink-0">
+      <div className="bg-white border-b border-slate-200 px-4 py-3 shadow-sm overflow-x-auto flex-shrink-0">
 
         {/*<h1 className="text-white text-2xl">TEST - 新しいコードです</h1>*/}
 
