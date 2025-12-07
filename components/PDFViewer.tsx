@@ -12,6 +12,7 @@ interface PDFViewerProps {
   children?: React.ReactNode;
   pageContainerRef?: React.RefObject<HTMLDivElement | null>;
   onFileSelect?: () => void;
+  onPageChange?: (pageNumber: number) => void;
 }
 
 export default function PDFViewer({
@@ -21,6 +22,7 @@ export default function PDFViewer({
   children,
   pageContainerRef,
   onFileSelect,
+  onPageChange,
 }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
@@ -56,9 +58,19 @@ export default function PDFViewer({
       setPageNumber(1);
       setLoading(false);
       setError(null);
+      if (onPageChange) {
+        onPageChange(1);
+      }
     },
-    []
+    [onPageChange]
   );
+
+  // ページ番号が変更されたときに親コンポーネントに通知
+  useEffect(() => {
+    if (onPageChange) {
+      onPageChange(pageNumber);
+    }
+  }, [pageNumber, onPageChange]);
 
   const onDocumentLoadStart = useCallback(() => {
     setLoading(true);

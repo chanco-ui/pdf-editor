@@ -742,6 +742,7 @@ export default function PDFEditor() {
               onPageClick={handlePageClick}
               pageContainerRef={pageContainerRef}
               onFileSelect={() => fileInputRef.current?.click()}
+              onPageChange={setCurrentPage}
             >
               {currentPageElements.map((element) => (
                 <div
