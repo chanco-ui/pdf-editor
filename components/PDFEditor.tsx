@@ -451,24 +451,42 @@ export default function PDFEditor() {
       );
       
       if (hasJapaneseText) {
-        try {
-          // jsDelivrからTTF形式のNoto Sans JPを取得
-          const fontUrl = "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosansjp/NotoSansJP-Regular.ttf";
-          const response = await fetch(fontUrl);
-          if (!response.ok) {
-            throw new Error(`フォントのダウンロードに失敗しました: ${response.status} ${response.statusText}`);
+        // 複数のCDNソースを試す
+        const fontUrls = [
+          "https://fonts.gstatic.com/s/notosansjp/v52/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf",
+          "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosansjp/NotoSansJP-Regular.ttf",
+          "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansjp/NotoSansJP-Regular.ttf",
+        ];
+        
+        let fontLoaded = false;
+        for (const fontUrl of fontUrls) {
+          try {
+            const response = await fetch(fontUrl, {
+              mode: 'cors',
+              cache: 'no-cache',
+            });
+            if (!response.ok) {
+              console.warn(`フォントURL ${fontUrl} のダウンロードに失敗: ${response.status}`);
+              continue;
+            }
+            const fontBytes = await response.arrayBuffer();
+            if (fontBytes.byteLength === 0) {
+              console.warn(`フォントURL ${fontUrl} のファイルが空です`);
+              continue;
+            }
+            japaneseFont = await pdfDoc.embedFont(fontBytes, { subset: true });
+            console.log(`日本語フォントの読み込みに成功しました: ${fontUrl}`);
+            fontLoaded = true;
+            break;
+          } catch (fontError) {
+            console.warn(`フォントURL ${fontUrl} の読み込みエラー:`, fontError);
+            continue;
           }
-          const fontBytes = await response.arrayBuffer();
-          if (fontBytes.byteLength === 0) {
-            throw new Error("フォントファイルが空です");
-          }
-          japaneseFont = await pdfDoc.embedFont(fontBytes, { subset: true });
-          console.log("日本語フォントの読み込みに成功しました");
-        } catch (fontError) {
-          console.error("フォント読み込みエラー:", fontError);
+        }
+        
+        if (!fontLoaded) {
+          console.error("すべてのフォントソースからの読み込みに失敗しました");
           // フォントが読み込めない場合でも処理を続行（デフォルトフォントを使用）
-          console.warn("日本語フォントの読み込みに失敗しました。デフォルトフォントを使用します。");
-          // エラーを表示するが、処理は続行
           alert("日本語フォントの読み込みに失敗しました。デフォルトフォントで保存されます。日本語が正しく表示されない可能性があります。");
         }
       }
