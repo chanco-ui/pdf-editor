@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { PDFDocument, rgb } from "pdf-lib";
-import * as fontkit from "@pdf-lib/fontkit";
 import PDFViewer from "./PDFViewer";
 
 interface TextElement {
@@ -445,8 +444,19 @@ export default function PDFEditor() {
       const arrayBuffer = await pdfFile.arrayBuffer();
       const pdfDoc = await PDFDocument.load(arrayBuffer);
       
-      // fontkitを登録（カスタムフォントを使用するために必要）
-      pdfDoc.registerFontkit(fontkit);
+      // fontkitを動的インポート（ブラウザ環境で動作するように）
+      try {
+        const fontkitModule = await import("@pdf-lib/fontkit");
+        // fontkitの正しいインポート方法
+        const fontkit = fontkitModule.default;
+        if (!fontkit || typeof fontkit !== 'object') {
+          throw new Error("fontkitの読み込みに失敗しました");
+        }
+        pdfDoc.registerFontkit(fontkit);
+      } catch (fontkitError) {
+        console.error("fontkitの読み込みに失敗:", fontkitError);
+        throw new Error(`フォント処理ライブラリの読み込みに失敗しました: ${fontkitError instanceof Error ? fontkitError.message : String(fontkitError)}`);
+      }
       
       const pages = pdfDoc.getPages();
 
