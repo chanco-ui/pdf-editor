@@ -451,38 +451,50 @@ export default function PDFEditor() {
       );
       
       if (hasJapaneseText) {
-        // 複数のCDNソースを試す（タイムアウト付き）
+        // まずローカルファイルから読み込み、失敗した場合はCDNから読み込む
+        // TTF形式のみを使用（pdf-libはWOFF2をサポートしていない）
         const fontUrls = [
-          "https://fonts.gstatic.com/s/notosansjp/v52/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf",
+          // ローカルファイル（最も確実）
+          "/fonts/NotoSansJP-Regular.ttf",
+          // jsDelivr CDN（バックアップ）
           "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosansjp/NotoSansJP-Regular.ttf",
+          // GitHub Raw（バックアップ）
           "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansjp/NotoSansJP-Regular.ttf",
+          // Google Fonts CDN（バックアップ）
+          "https://fonts.gstatic.com/s/notosansjp/v52/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf",
         ];
         
         let fontLoaded = false;
-        const timeout = 5000; // 5秒のタイムアウト
+        const timeout = 10000; // 10秒のタイムアウト（長めに設定）
+        let lastError: Error | null = null;
         
         for (const fontUrl of fontUrls) {
           try {
+            console.log(`フォントの読み込みを試行中: ${fontUrl}`);
             // タイムアウト付きでfetch
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeout);
             
             const response = await fetch(fontUrl, {
-              mode: 'cors',
-              cache: 'no-cache',
+              mode: fontUrl.startsWith('/') ? 'same-origin' : 'cors', // ローカルファイルはsame-origin
+              cache: 'default', // キャッシュを有効化
               signal: controller.signal,
             });
             clearTimeout(timeoutId);
             
             if (!response.ok) {
-              console.warn(`フォントURL ${fontUrl} のダウンロードに失敗: ${response.status}`);
+              console.warn(`フォントURL ${fontUrl} のダウンロードに失敗: ${response.status} ${response.statusText}`);
+              lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
               continue;
             }
             const fontBytes = await response.arrayBuffer();
             if (fontBytes.byteLength === 0) {
               console.warn(`フォントURL ${fontUrl} のファイルが空です`);
+              lastError = new Error("フォントファイルが空です");
               continue;
             }
+            console.log(`フォントファイルのサイズ: ${fontBytes.byteLength} bytes`);
+            
             japaneseFont = await pdfDoc.embedFont(fontBytes, { subset: true });
             console.log(`日本語フォントの読み込みに成功しました: ${fontUrl}`);
             fontLoaded = true;
@@ -490,16 +502,19 @@ export default function PDFEditor() {
           } catch (fontError) {
             if (fontError instanceof Error && fontError.name === 'AbortError') {
               console.warn(`フォントURL ${fontUrl} の読み込みがタイムアウトしました`);
+              lastError = new Error("タイムアウト");
             } else {
               console.warn(`フォントURL ${fontUrl} の読み込みエラー:`, fontError);
+              lastError = fontError instanceof Error ? fontError : new Error(String(fontError));
             }
             continue;
           }
         }
         
         if (!fontLoaded) {
-          console.error("すべてのフォントソースからの読み込みに失敗しました");
-          alert("日本語フォントの読み込みに失敗しました。日本語テキストを保存するにはフォントが必要です。\n\nページをリロードして再度お試しください。");
+          console.error("すべてのフォントソースからの読み込みに失敗しました", lastError);
+          const errorMessage = lastError ? `\n\nエラー詳細: ${lastError.message}` : '';
+          alert(`日本語フォントの読み込みに失敗しました。日本語テキストを保存するにはフォントが必要です。${errorMessage}\n\nネットワーク接続を確認するか、ページをリロードして再度お試しください。`);
           return; // 保存処理を中止
         }
       }
