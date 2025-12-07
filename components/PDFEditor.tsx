@@ -548,6 +548,7 @@ export default function PDFEditor() {
               size: element.fontSize,
               color: rgb(0, 0, 0),
               font: containsJapanese && japaneseFont ? japaneseFont : undefined,
+              maxWidth: element.width, // テキストの幅を指定
             });
           } catch (textError) {
             console.error(`テキスト "${element.text}" の描画に失敗:`, textError);
