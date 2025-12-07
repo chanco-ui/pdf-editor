@@ -498,26 +498,18 @@ export default function PDFEditor() {
         }
         
         if (!fontLoaded) {
-          console.warn("すべてのフォントソースからの読み込みに失敗しました。日本語テキストはスキップされます。");
-          // フォントが読み込めない場合でも処理を続行（日本語テキストはスキップ）
+          console.error("すべてのフォントソースからの読み込みに失敗しました");
+          alert("日本語フォントの読み込みに失敗しました。日本語テキストを保存するにはフォントが必要です。\n\nページをリロードして再度お試しください。");
+          return; // 保存処理を中止
         }
       }
 
-      let skippedJapaneseTexts: string[] = [];
-      
       for (const element of elements) {
         const page = pages[element.page - 1];
         if (!page) continue;
 
         if (element.type === "text") {
           const containsJapanese = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\uff00-\uffef]/.test(element.text);
-          
-          // 日本語テキストがある場合、フォントが読み込めていない場合はスキップ
-          if (containsJapanese && !japaneseFont) {
-            console.warn(`日本語テキスト "${element.text}" はフォントが読み込めないためスキップされます`);
-            skippedJapaneseTexts.push(element.text);
-            continue;
-          }
           
           try {
             page.drawText(element.text, {
@@ -529,11 +521,7 @@ export default function PDFEditor() {
             });
           } catch (textError) {
             console.error(`テキスト "${element.text}" の描画に失敗:`, textError);
-            if (containsJapanese) {
-              skippedJapaneseTexts.push(element.text);
-            }
-            // エラーが発生しても処理を続行
-            continue;
+            throw new Error(`テキスト "${element.text}" の保存に失敗しました: ${textError instanceof Error ? textError.message : String(textError)}`);
           }
         } else if (element.type === "image") {
           const imageBytes = await fetch(element.src).then((res) => res.arrayBuffer());
@@ -566,12 +554,7 @@ export default function PDFEditor() {
       a.download = `edited-${pdfFile.name}`;
       a.click();
       URL.revokeObjectURL(url);
-      
-      if (skippedJapaneseTexts.length > 0) {
-        alert(`PDFを保存しました。\n\n注意: 日本語フォントが読み込めなかったため、${skippedJapaneseTexts.length}個の日本語テキストがスキップされました。`);
-      } else {
-        alert("PDFを保存しました");
-      }
+      alert("PDFを保存しました");
     } catch (error) {
       console.error("PDF保存エラー:", error);
       alert(`PDFの保存に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
