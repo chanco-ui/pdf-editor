@@ -498,12 +498,13 @@ export default function PDFEditor() {
         }
         
         if (!fontLoaded) {
-          console.warn("すべてのフォントソースからの読み込みに失敗しました。デフォルトフォントを使用します。");
-          // フォントが読み込めない場合でも処理を続行（デフォルトフォントを使用）
-          // alertは削除して、処理を中断しないようにする
+          console.warn("すべてのフォントソースからの読み込みに失敗しました。日本語テキストはスキップされます。");
+          // フォントが読み込めない場合でも処理を続行（日本語テキストはスキップ）
         }
       }
 
+      let skippedJapaneseTexts: string[] = [];
+      
       for (const element of elements) {
         const page = pages[element.page - 1];
         if (!page) continue;
@@ -511,13 +512,29 @@ export default function PDFEditor() {
         if (element.type === "text") {
           const containsJapanese = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\uff00-\uffef]/.test(element.text);
           
-          page.drawText(element.text, {
-            x: element.x,
-            y: page.getHeight() - element.y - element.fontSize,
-            size: element.fontSize,
-            color: rgb(0, 0, 0),
-            font: containsJapanese && japaneseFont ? japaneseFont : undefined,
-          });
+          // 日本語テキストがある場合、フォントが読み込めていない場合はスキップ
+          if (containsJapanese && !japaneseFont) {
+            console.warn(`日本語テキスト "${element.text}" はフォントが読み込めないためスキップされます`);
+            skippedJapaneseTexts.push(element.text);
+            continue;
+          }
+          
+          try {
+            page.drawText(element.text, {
+              x: element.x,
+              y: page.getHeight() - element.y - element.fontSize,
+              size: element.fontSize,
+              color: rgb(0, 0, 0),
+              font: containsJapanese && japaneseFont ? japaneseFont : undefined,
+            });
+          } catch (textError) {
+            console.error(`テキスト "${element.text}" の描画に失敗:`, textError);
+            if (containsJapanese) {
+              skippedJapaneseTexts.push(element.text);
+            }
+            // エラーが発生しても処理を続行
+            continue;
+          }
         } else if (element.type === "image") {
           const imageBytes = await fetch(element.src).then((res) => res.arrayBuffer());
           const isPng = element.src.startsWith("data:image/png");
@@ -549,7 +566,12 @@ export default function PDFEditor() {
       a.download = `edited-${pdfFile.name}`;
       a.click();
       URL.revokeObjectURL(url);
-      alert("PDFを保存しました");
+      
+      if (skippedJapaneseTexts.length > 0) {
+        alert(`PDFを保存しました。\n\n注意: 日本語フォントが読み込めなかったため、${skippedJapaneseTexts.length}個の日本語テキストがスキップされました。`);
+      } else {
+        alert("PDFを保存しました");
+      }
     } catch (error) {
       console.error("PDF保存エラー:", error);
       alert(`PDFの保存に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
