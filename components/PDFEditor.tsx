@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { PDFDocument, rgb } from "pdf-lib";
+import * as fontkit from "@pdf-lib/fontkit";
 import PDFViewer from "./PDFViewer";
 
 interface TextElement {
@@ -443,6 +444,10 @@ export default function PDFEditor() {
     try {
       const arrayBuffer = await pdfFile.arrayBuffer();
       const pdfDoc = await PDFDocument.load(arrayBuffer);
+      
+      // fontkitを登録（カスタムフォントを使用するために必要）
+      pdfDoc.registerFontkit(fontkit);
+      
       const pages = pdfDoc.getPages();
 
       let japaneseFont = null;
